@@ -7,14 +7,15 @@ import rtejada.projects.AREA.SharedSetup
 class PreprocessorSpec extends FlatSpec with SharedSetup {
 
   "A preprocessor" should "filter out departures" in {
-    val pp = new Preprocessor(testData, testConfig)
+    val pp = new Preprocessor(testData, testConfig, "KPHX")
     val departureFound = pp.filteredDF.select("depAirport").collect().find(_.apply(0).toString.equals("KPHX"))
     assert(departureFound == None)
   }
 
   "A preprocessor" should "extract required features" in {
-    val pp = new Preprocessor(testData, testConfig)
+    val pp = new Preprocessor(testData, testConfig, "KPHX")
     assert(pp.fullFeaturesDF.columns.contains("touchdownLong"))
+    assert(pp.fullFeaturesDF.columns.contains("carrier"))
     assert(pp.fullFeaturesDF.columns.contains("hour"))
     assert(pp.fullFeaturesDF.columns.contains("day"))
     assert(pp.fullFeaturesDF.columns.contains("speed1"))
@@ -22,12 +23,12 @@ class PreprocessorSpec extends FlatSpec with SharedSetup {
   }
   
   "A preprocessor" should "produce labeled data (with exit column)" in {
-    val pp = new Preprocessor(testData, testConfig)
+    val pp = new Preprocessor(testData, testConfig, "KPHX")
     assert(pp.finalDF.columns.contains("exit"))
   }
   
   "A preprocessor's output" should "not have any nulls" in {
-    val pp = new Preprocessor(testData, testConfig)
+    val pp = new Preprocessor(testData, testConfig, "KPHX")
     val nullFound = pp.finalDF.collect().find(_.anyNull)
 
     assert(nullFound == None)

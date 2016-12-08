@@ -53,7 +53,7 @@ src_managed/
 streaming-tests.log
 target/
 data/
-output/
+output/*
 bin/
 processedData
 unit-tests.log

@@ -17,7 +17,7 @@ import scala.util.control.Breaks._
 import rtejada.projects.AREA.Main.spark.implicits._
 
 /** Filters bad data, extracts features and ensures dataset is labaled */
-class Preprocessor(inputData: DataFrame, inputConfig: DataFrame) extends Serializable {
+class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: String) extends Serializable {
   //Transforming exit configuration DF to Array[Row]
   val exitConfig = inputConfig.collect()
 
@@ -29,7 +29,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame) extends Seriali
   val inputDF = withoutDupDF.toDF(headerSeq: _*)
 
   //Filter
-  val filteredDF = filterFlights(inputDF)
+  val filteredDF = filterFlights(inputDF, airportCode)
 
   //Adding all features
   val fullFeaturesDF = addFeatures(filteredDF)
@@ -39,9 +39,9 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame) extends Seriali
   val finalDF = readyDF.drop("links", "positions")
 
   /** Remove irrelevant Columns, null values and departure records. */
-  private def filterFlights(inputDF: DataFrame): DataFrame = {
+  private def filterFlights(inputDF: DataFrame, airport: String): DataFrame = {
     //Dropping irrelevant columns and filtering departures out
-    val relevantDF = inputDF.filter("arrAirport=='KPHX'").drop("callsign", "nactId", "arrAirport", "initialGateTimeOfDeparture",
+    val relevantDF = inputDF.filter(s"arrAirport=='$airport'").drop("nactId", "arrAirport", "initialGateTimeOfDeparture",
       "scheduledTimeOfDeparture", "actualTimeOfDeparture", "scheduledTimeOfArrival",
       "actualTimeOfArrival", "depTerminal", "depGate")
 
@@ -55,7 +55,16 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame) extends Seriali
     val withTouchdown = findTouchdownPos(inputDF)
     val withDayTime = findDayTime(withTouchdown)
     val withSpeeds = findSpeeds(withDayTime)
-    withSpeeds
+    val withCarrier = findCarrier(withSpeeds)
+    withCarrier
+  }
+
+  /**
+   * Finds the carrier using letters in the callsign column
+   */
+  private def findCarrier(inputDF: DataFrame): DataFrame = {
+    val toStringUDF = udf((a: Seq[String]) => a.mkString(""))
+    inputDF.withColumn("carrier", toStringUDF(split(inputDF.col("callsign"), "\\d"))).drop("callsign")
   }
 
   /**
@@ -115,8 +124,8 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame) extends Seriali
     def calcTouchdownPos(positions: String, latOrLong: Integer): Double = {
       val splitPositions = positions.split("\\|")
       val splitFirstPos = splitPositions(0).split(";")
-      val latitude = splitFirstPos(latOrLong).toDouble
-      Math.abs(latitude)
+      val coords = splitFirstPos(latOrLong).toDouble
+      Math.abs(coords)
     }
 
     val latitudeUDF = udf(calcTouchdownPos(_: String, 0))
@@ -195,19 +204,22 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame) extends Seriali
         (set * positionsUsed) + positionsUsed)
       val speedArr = posUsedArr.sliding(2).map(pos => {
         val curMilliseconds = getMilliseconds(pos.head.split(";"))
+        val curLat = pos.head.split(";")(0)
         val curLong = pos.head.split(";")(1)
 
         val nextMilliseconds = getMilliseconds(pos.last.split(";"))
+        val nextLat = pos.last.split(";")(0)
         val nextLong = pos.last.split(";")(1)
 
         val diffMilliseconds = Math.abs(curMilliseconds.toDouble - nextMilliseconds.toDouble)
+        val diffLat = Math.abs(curLat.toDouble - nextLat.toDouble)
         val diffLong = Math.abs(curLong.toDouble - nextLong.toDouble)
+        val euclDist = Math.sqrt(Math.pow(diffLat * 110912.29157913252, 2) +
+          Math.pow(diffLong * 92986.56694923184, 2))
 
-        ((diffLong * 110912.11246676794) / (diffMilliseconds / 1000))
+        (euclDist / (diffMilliseconds / 1000))
       })
-      val avgSpeed = Math.round(10.0 * speedArr.sum / positionsUsed - 1) / 10.0
-
-      avgSpeed
+      BigDecimal(speedArr.sum / positionsUsed - 1).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
     }
     val speedUDF1 = udf(calcSpeed(_: String, 0))
     val speedCol1 = speedUDF1.apply(inputDF.col("positions"))

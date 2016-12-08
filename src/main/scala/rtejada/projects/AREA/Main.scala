@@ -37,8 +37,9 @@ object Main extends App {
   try {
     val dataDF = Interface.getAirportData(airportName).cache
     val configDF = Interface.getExitConfig(airportName)
+    val airportCode = Interface.getAirportCode(airportName)
 
-    val analysis = new ExitAnalysis(dataDF, configDF)
+    val analysis = new ExitAnalysis(dataDF, configDF, airportCode)
     analysis.processedDF.show
 
     val predictions = analysis.forestHandler.predictions

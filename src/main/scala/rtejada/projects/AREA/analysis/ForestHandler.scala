@@ -30,7 +30,7 @@ class ForestHandler(data: DataFrame) {
   val Array(trainingData, testingData) = data.randomSplit(Array(0.7, 0.3), 4873)
 
   //Indexing categorical features
-  val stringColumns = data.drop("touchdownLat", "touchdownLong", "speed1", "speed2", "exit").columns
+  val stringColumns = data.drop("touchdownLong", "touchdownLat", "speed1", "speed2", "exit").columns
   val index_transformers: Array[PipelineStage] = stringColumns.map(
     colName => new StringIndexer()
       .setInputCol(colName)
@@ -38,11 +38,11 @@ class ForestHandler(data: DataFrame) {
       .fit(data)
       .setHandleInvalid("skip"))
 
-  //Assemble input features to vector
+  //Assemble input features to vector.
   val assembler = new VectorAssembler()
-    .setInputCols(Array("runwayIndex", "depAirportIndex",
-      "aircraftTypeIndex", "arrTerminalIndex", "arrGateIndex",
-      "touchdownLong", "hourIndex", "dayIndex", "speed1", "speed2"))
+    .setInputCols(Array("runwayIndex", "depAirportIndex", "aircraftTypeIndex", "arrTerminalIndex",
+      "arrGateIndex", "hourIndex", "dayIndex", "carrierIndex", "touchdownLong",
+      "touchdownLat", "speed1", "speed2"))
     .setOutputCol("features")
 
   //Index label column
@@ -58,14 +58,15 @@ class ForestHandler(data: DataFrame) {
   val testResult = testModel(pipelineModel, testingData)
 
   //Output model details
-  /*val rfModel = pipelineModel.stages(9).asInstanceOf[RandomForestClassificationModel]
+  val rfModel = pipelineModel.stages(10).asInstanceOf[RandomForestClassificationModel]
 
-  	val forestDetails =	assembleStringRF(rfModel)
-    Interface.output(forestDetails, "randomForest.txt")
-   */
+  val forestDetails = assembleStringRF(rfModel)
+  Interface.output(forestDetails, "randomForest.txt")
+
+  //Feeds categorical and continuous features separately to the writer
   val featureWriter = new FeatureWriter(Array("runwayIndex", "depAirportIndex",
-    "aircraftTypeIndex", "arrTerminalIndex", "arrGateIndex",
-    "touchdownLong", "hourIndex", "dayIndex", "speed1", "speed2"), index_transformers,
+    "aircraftTypeIndex", "arrTerminalIndex", "arrGateIndex", "hourIndex", "dayIndex", "carrierIndex"),
+    Array("touchdownLong", "touchdownLat", "speed1", "speed2"), index_transformers,
     labelIndexer)
 
   Interface.output(featureWriter.featureOutput, "features.json")
@@ -82,8 +83,8 @@ class ForestHandler(data: DataFrame) {
       .setFeatureSubsetStrategy("sqrt")
       .setSeed(4283)
       .setMaxBins(2000)
-      .setMaxDepth(4)
-      .setNumTrees(40)
+      .setMaxDepth(7)
+      .setNumTrees(105)
 
     //Predictions from index back to label
     val labelConverter = new IndexToString()

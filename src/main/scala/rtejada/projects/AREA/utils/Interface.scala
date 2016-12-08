@@ -71,6 +71,12 @@ object Interface {
     case ic"ATL" | ic"ATLANTA" => Main.spark.read.option("header", true).csv("data/exit_config_ATL.csv")
     case ic"DNV" | ic"ATLANTA" => Main.spark.read.option("header", true).csv("data/exit_config_DNV.csv")
   }
+  
+    def getAirportCode(airport: String): String = airport match {
+    case ic"PHX" | ic"PHOENIX" => "KPHX"
+    case ic"ATL" | ic"ATLANTA" => "KATL"
+    case ic"DNV" | ic"ATLANTA" => "KDNV"
+  }
 
   private implicit class IgnoreCaseRegex(sc: StringContext) {
     def ic = ("(?i)" + sc.parts.mkString).r

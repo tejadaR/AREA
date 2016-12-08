@@ -20,9 +20,11 @@ import java.io.File
  *
  * @author rtejada
  */
-class FeatureWriter(featureNames: Array[String], indexedFeatures: Array[PipelineStage], labelIndexer: StringIndexerModel) {
+class FeatureWriter(catFeatNames: Array[String], contFeatNames: Array[String], indexedFeatures: Array[PipelineStage], labelIndexer: StringIndexerModel) {
 
-  val featureOutput = formJson(formFeatures)
+  val catFeatures = formFeatures(catFeatNames, indexedFeatures, true)
+  val contFeatures = formFeatures(contFeatNames, indexedFeatures, false)
+  val featureOutput = formJson(catFeatures ++ contFeatures)
 
   /**
    * Generates a JSON string from the given array of Features
@@ -48,27 +50,15 @@ class FeatureWriter(featureNames: Array[String], indexedFeatures: Array[Pipeline
    * Forms feature information into a Feature
    * class, and places the latter in an Array
    */
-  private def formFeatures(): Array[Feature] = {
-    val features = featureNames.zipWithIndex.map {
+  private def formFeatures(names: Array[String], indexedFeats: Array[PipelineStage], categorical: Boolean): Array[Feature] = {
+    val features = names.zipWithIndex.map {
       case (feat, i) =>
-        def getFeatName(x: Int): String = x match {
-          case 5 => "touchdownLong"
-          case 8 => "speed1"
-          case 9 => "speed2"
-          case _ => featureNames(i).replace("Index", "")
-        }
-        def getFeatType(x: Int): String = x match {
-          case 5 => "continuous"
-          case 8 => "continuous"
-          case 9 => "continuous"
-          case _ => "categorical"
-        }
-        if (i == 5 || i == 8 || i == 9)
-          Feature(getFeatName(i), getFeatType(i), None)
-        else if (i < 5)
-          Feature(getFeatName(i), getFeatType(i), Some(indexedFeatures(i).asInstanceOf[StringIndexerModel].labels))
+        val featName = feat.replace("Index", "")
+        val featType = if (categorical) "categorical" else "continuous"
+        if (categorical)
+          Feature(featName, featType, Some(indexedFeats(i).asInstanceOf[StringIndexerModel].labels))
         else
-          Feature(getFeatName(i), getFeatType(i), Some(indexedFeatures(i - 1).asInstanceOf[StringIndexerModel].labels))
+          Feature(featName, featType, None)
     }
     features
   }

@@ -16,10 +16,10 @@ import rtejada.projects.AREA.analysis.Preprocessor
 import rtejada.projects.AREA.analysis.ForestHandler
 
 /** Handles preprocessing and machine learning stages. */
-class ExitAnalysis(dataDF: DataFrame, configDF: DataFrame) {
+class ExitAnalysis(dataDF: DataFrame, configDF: DataFrame, airportCode: String) {
 
   //Pre-processing
-  val preProcessor = new Preprocessor(dataDF, configDF)
+  val preProcessor = new Preprocessor(dataDF, configDF, airportCode)
   val processedDF = preProcessor.finalDF.cache()
   
   //Random Forest Pipeline
