@@ -13,6 +13,7 @@
 .project
 .scala_dependencies
 .settings
+.cache*
 /lib/
 build/*.jar
 build/apache-maven*

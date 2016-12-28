@@ -10,12 +10,15 @@
 package rtejada.projects.AREA.analysis
 
 import org.apache.spark.sql._
+import org.apache.spark.sql.types._
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.classification.RandomForestClassificationModel
+import org.apache.spark.ml.tuning._
+import org.apache.spark.ml.param.ParamMap
 import rtejada.projects.AREA.utils.FeatureWriter
 import rtejada.projects.AREA.utils.Interface
 import org.apache.spark.ml.PipelineStage
@@ -29,21 +32,26 @@ class ForestHandler(data: DataFrame) {
   //Split data into training and testing sets
   val Array(trainingData, testingData) = data.randomSplit(Array(0.7, 0.3), 4873)
 
+  //Categorical and Continuous feature names in separate arrays
+  val namesCategorical = data.drop("exit").schema.fields.filter(struct => {
+    struct.dataType.toString == "StringType"
+  }).map(_.name)
+  val namesContinuous = data.drop("exit").schema.fields.filter(struct => {
+    struct.dataType.toString == "LongType" || struct.dataType.toString == "DoubleType"
+  }).map(_.name)
+
   //Indexing categorical features
-  val stringColumns = data.drop("touchdownLong", "touchdownLat", "speed1", "speed2", "exit").columns
-  val index_transformers: Array[PipelineStage] = stringColumns.map(
-    colName => new StringIndexer()
-      .setInputCol(colName)
-      .setOutputCol(s"${colName}Index")
+  val index_transformers: Array[PipelineStage] = namesCategorical.map(
+    name => new StringIndexer()
+      .setInputCol(name)
+      .setOutputCol(s"${name}Index")
       .fit(data)
       .setHandleInvalid("skip"))
 
-  //Assemble input features to vector.
-  val assembler = new VectorAssembler()
-    .setInputCols(Array("runwayIndex", "depAirportIndex", "aircraftTypeIndex", "arrTerminalIndex",
-      "arrGateIndex", "hourIndex", "dayIndex", "carrierIndex", "touchdownLong",
-      "touchdownLat", "speed1", "speed2"))
-    .setOutputCol("features")
+  //Assemble all features to vector.
+  val catAssembler = new VectorAssembler()
+    .setInputCols(namesCategorical.map(_ ++ "Index"))
+    .setOutputCol("catFeatures")
 
   //Index label column
   val labelIndexer = new StringIndexer()
@@ -51,40 +59,45 @@ class ForestHandler(data: DataFrame) {
     .setOutputCol("label")
     .fit(trainingData).setHandleInvalid("skip")
 
-  //Model Training
-  val pipelineModel = trainModel(trainingData)
+  //Chi-squared selector, based on test of independence
+  val catSelector = new ChiSqSelector()
+    .setNumTopFeatures(5)
+    .setFeaturesCol("catFeatures")
+    .setLabelCol("label")
+    .setOutputCol("selectedFeatures")
 
-  //Model Testing
-  val testResult = testModel(pipelineModel, testingData)
+  //Assemble all categorical AND continuous features
+  val finalAssembler = new VectorAssembler()
+    .setInputCols("selectedFeatures" +: namesContinuous)
+    .setOutputCol("features")
 
-  //Output model details
-  val rfModel = pipelineModel.stages(10).asInstanceOf[RandomForestClassificationModel]
-
-  val forestDetails = assembleStringRF(rfModel)
-  Interface.output(forestDetails, "randomForest.txt")
+  //******
+  //  Model Training & Testing
+  //******
+  val results = execute(trainingData, testingData)
 
   //Feeds categorical and continuous features separately to the writer
-  val featureWriter = new FeatureWriter(Array("runwayIndex", "depAirportIndex",
-    "aircraftTypeIndex", "arrTerminalIndex", "arrGateIndex", "hourIndex", "dayIndex", "carrierIndex"),
-    Array("touchdownLong", "touchdownLat", "speed1", "speed2"), index_transformers,
+  val featureWriter = new FeatureWriter(namesCategorical, namesContinuous, index_transformers,
     labelIndexer)
-
   Interface.output(featureWriter.featureOutput, "features.json")
 
   //Results
-  val predictions = testResult._1
-  val accuracy = testResult._2
+  val predictions = results._1
+  val accuracy = results._2
+  val bestParams = results._3
 
-  private def trainModel(data: DataFrame): PipelineModel = {
+  /**Executes training and testing of pipeline with set parameters*/
+  private def execute(trainDF: DataFrame, testDF: DataFrame): (DataFrame, Double, String) = {
     //Random Forest
     val classifierRF = new RandomForestClassifier()
-      .setFeaturesCol(assembler.getOutputCol)
+      .setFeaturesCol(finalAssembler.getOutputCol)
       .setImpurity("entropy")
       .setFeatureSubsetStrategy("sqrt")
       .setSeed(4283)
-      .setMaxBins(2000)
-      .setMaxDepth(7)
-      .setNumTrees(105)
+      .setSubsamplingRate(0.7)
+      .setMaxBins(500)
+      .setMaxDepth(3)
+      .setNumTrees(20)
 
     //Predictions from index back to label
     val labelConverter = new IndexToString()
@@ -95,18 +108,75 @@ class ForestHandler(data: DataFrame) {
     //Pipeline chain feature transformers and random forest
     val pipeline = new Pipeline()
       .setStages(index_transformers ++
-        Array(assembler, labelIndexer, classifierRF, labelConverter))
+        Array(catAssembler, labelIndexer, catSelector, finalAssembler, classifierRF, labelConverter))
 
-    pipeline.fit(data)
-  }
+    val model = pipeline.fit(trainDF)
 
-  private def testModel(model: PipelineModel, data: DataFrame): (DataFrame, Double) = {
     val evaluator = new MulticlassClassificationEvaluator()
       .setLabelCol("label")
       .setPredictionCol("prediction").setMetricName("accuracy")
-    val predictions = model.transform(data)
+    val predictions = model.transform(testDF)
 
-    (predictions, evaluator.evaluate(predictions) * 100)
+    //Output model details
+    val optionModel = model.stages.find(transformer => transformer.toString.contains("RandomForest"))
+    val forestDetails =
+      if (optionModel.isDefined) assembleStringRF(optionModel.get.asInstanceOf[RandomForestClassificationModel])
+      else "Random Forest Model not found in Pipeline"
+    Interface.output(forestDetails, "randomForest.txt")
+
+    (predictions, evaluator.evaluate(predictions) * 100, "No cross-validation")
+  }
+  
+  /**Executes training and testing of pipeline with cross-validation*/
+  private def executeTuning(trainDF: DataFrame, testDF: DataFrame): (DataFrame, Double, ParamMap) = {
+    //Random Forest
+    val classifierRF = new RandomForestClassifier()
+      .setFeaturesCol(finalAssembler.getOutputCol)
+      .setImpurity("entropy")
+      .setFeatureSubsetStrategy("sqrt")
+      .setSeed(4283)
+      .setSubsamplingRate(0.7)
+      .setMaxBins(500)
+
+    //Predictions from index back to label
+    val labelConverter = new IndexToString()
+      .setInputCol("prediction")
+      .setOutputCol("predictedExit")
+      .setLabels(labelIndexer.labels)
+
+    //Pipeline chain feature transformers and random forest
+    val pipeline = new Pipeline()
+      .setStages(index_transformers ++
+        Array(catAssembler, labelIndexer, catSelector, finalAssembler, classifierRF, labelConverter))
+
+    //****Cross-validation
+    def bestEstimatorParamMap(cvModel: CrossValidatorModel): ParamMap = {
+      cvModel.getEstimatorParamMaps
+        .zip(cvModel.avgMetrics)
+        .maxBy(_._2)
+        ._1
+    }
+    val nFolds: Int = 5
+
+    //Grid search setup
+    val paramGrid = new ParamGridBuilder().addGrid(classifierRF.numTrees, Array(118, 115, 122, 128))
+      .addGrid(classifierRF.maxDepth, Array(7))
+      .addGrid(catSelector.numTopFeatures, Array(5))
+      .build()
+    val evaluator = new MulticlassClassificationEvaluator()
+      .setLabelCol("label")
+      .setPredictionCol("prediction")
+      .setMetricName("accuracy")
+    val cv = new CrossValidator()
+      .setEstimator(pipeline)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(nFolds)
+    val cvModel = cv.fit(trainDF)
+
+    val predictions = cvModel.transform(testDF)
+
+    (predictions, evaluator.evaluate(predictions) * 100, bestEstimatorParamMap(cvModel))
   }
 
   /**

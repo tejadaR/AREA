@@ -19,6 +19,7 @@ import scala.util._
 import java.io.FileNotFoundException
 import java.io.IOException
 import javax.script.ScriptException
+import java.util.Calendar
 
 /** Entry point for project AREA.*/
 object Main extends App {
@@ -47,16 +48,17 @@ object Main extends App {
 
     predictions.show
     println(f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${predictions.count} test records")
+    println(analysis.forestHandler.bestParams)
 
   } catch {
     case ex: FileNotFoundException => println(s"Data or config not found for Airport: \'$airportName\' " + ex)
     case ex: AnalysisException     => println(s"Invalid query using Airport: \'$airportName\' " + ex)
     case ex: MatchError            => println("Unable to match: " + ex.getMessage())
     case ex: IOException           => println("IO Exception " + ex)
-    case other: Throwable          => println("Exception: " + other)
+    case other: Throwable          => println("Exception: " + other.printStackTrace())
 
   } finally {
-    println("Exiting")
+    println("Exiting "+ Calendar.getInstance().getTime)
   }
 
 }
