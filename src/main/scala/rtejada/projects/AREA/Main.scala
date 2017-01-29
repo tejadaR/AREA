@@ -36,6 +36,8 @@ object Main extends App {
   val airportName = Interface.inputAirport("Enter Airport: ")
 
   try {
+    val startEpoch = Calendar.getInstance.getTimeInMillis
+    
     val dataDF = Interface.getAirportData(airportName).cache
     val configDF = Interface.getExitConfig(airportName)
     val airportCode = Interface.getAirportCode(airportName)
@@ -45,11 +47,27 @@ object Main extends App {
 
     val predictions = analysis.forestHandler.predictions
     val accuracy = analysis.forestHandler.accuracy
+    
+    val trainCount = analysis.forestHandler.trainingData.count
+    val testCount = analysis.forestHandler.testingData.count    
 
-    predictions.show
-    println(f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${predictions.count} test records")
+    predictions.show(false)
+    
+    println(f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${testCount} test records")
     println(analysis.forestHandler.bestParams)
 
+    val runDuration = Calendar.getInstance.getTimeInMillis - startEpoch
+    
+    val runInfoMap: Map[String, String] = Map("airportCode" -> airportCode,
+      "accuracy" -> accuracy.toString,
+      "numRunways" -> analysis.preProcessor.finalDF.select("runway").distinct.count.toString,
+      "numExits" -> analysis.preProcessor.finalDF.select("exit").distinct.count.toString,
+      "trainCount" -> trainCount.toString,
+      "testCount" -> testCount.toString,
+      "runDuration" -> runDuration.toString)
+
+    Interface.outputJsonWithDate(runInfoMap, "runInfo"+analysis.forestHandler.runTimeId+".json")
+    
   } catch {
     case ex: FileNotFoundException => println(s"Data or config not found for Airport: \'$airportName\' " + ex)
     case ex: AnalysisException     => println(s"Invalid query using Airport: \'$airportName\' " + ex)
@@ -58,7 +76,7 @@ object Main extends App {
     case other: Throwable          => println("Exception: " + other.printStackTrace())
 
   } finally {
-    println("Exiting "+ Calendar.getInstance().getTime)
+    println("Exiting " + Calendar.getInstance().getTime)
   }
 
 }

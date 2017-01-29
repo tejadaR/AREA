@@ -22,12 +22,15 @@ import org.apache.spark.ml.param.ParamMap
 import rtejada.projects.AREA.utils.FeatureWriter
 import rtejada.projects.AREA.utils.Interface
 import org.apache.spark.ml.PipelineStage
+import java.util.Calendar
 
 /**
  * Sets up pipeline for Random Forest model. Trains, tests and evaluates
  * for accuracy.
  */
 class ForestHandler(data: DataFrame) {
+  
+  val runTimeId =  Calendar.getInstance().getTimeInMillis / 1000
 
   //Split data into training and testing sets
   val Array(trainingData, testingData) = data.randomSplit(Array(0.7, 0.3), 4873)
@@ -49,9 +52,9 @@ class ForestHandler(data: DataFrame) {
       .setHandleInvalid("skip"))
 
   //Assemble all features to vector.
-  val catAssembler = new VectorAssembler()
-    .setInputCols(namesCategorical.map(_ ++ "Index"))
-    .setOutputCol("catFeatures")
+  val featureAssembler = new VectorAssembler()
+    .setInputCols(namesCategorical.map(_ ++ "Index") ++ namesContinuous)
+    .setOutputCol("features")
 
   //Index label column
   val labelIndexer = new StringIndexer()
@@ -59,27 +62,15 @@ class ForestHandler(data: DataFrame) {
     .setOutputCol("label")
     .fit(trainingData).setHandleInvalid("skip")
 
-  //Chi-squared selector, based on test of independence
-  val catSelector = new ChiSqSelector()
-    .setNumTopFeatures(5)
-    .setFeaturesCol("catFeatures")
-    .setLabelCol("label")
-    .setOutputCol("selectedFeatures")
-
-  //Assemble all categorical AND continuous features
-  val finalAssembler = new VectorAssembler()
-    .setInputCols("selectedFeatures" +: namesContinuous)
-    .setOutputCol("features")
-
-  //******
+  //*************
   //  Model Training & Testing
-  //******
+  //*************
   val results = execute(trainingData, testingData)
 
   //Feeds categorical and continuous features separately to the writer
   val featureWriter = new FeatureWriter(namesCategorical, namesContinuous, index_transformers,
     labelIndexer)
-  Interface.output(featureWriter.featureOutput, "features.json")
+  Interface.output(featureWriter.featureOutput, "features"+runTimeId+".json")
 
   //Results
   val predictions = results._1
@@ -90,14 +81,14 @@ class ForestHandler(data: DataFrame) {
   private def execute(trainDF: DataFrame, testDF: DataFrame): (DataFrame, Double, String) = {
     //Random Forest
     val classifierRF = new RandomForestClassifier()
-      .setFeaturesCol(finalAssembler.getOutputCol)
+      .setFeaturesCol(featureAssembler.getOutputCol)
       .setImpurity("entropy")
       .setFeatureSubsetStrategy("sqrt")
       .setSeed(4283)
-      .setSubsamplingRate(0.7)
+      .setSubsamplingRate(1.0)
       .setMaxBins(500)
-      .setMaxDepth(3)
-      .setNumTrees(20)
+      .setMaxDepth(7)
+      .setNumTrees(115)
 
     //Predictions from index back to label
     val labelConverter = new IndexToString()
@@ -108,7 +99,7 @@ class ForestHandler(data: DataFrame) {
     //Pipeline chain feature transformers and random forest
     val pipeline = new Pipeline()
       .setStages(index_transformers ++
-        Array(catAssembler, labelIndexer, catSelector, finalAssembler, classifierRF, labelConverter))
+        Array(featureAssembler, labelIndexer, classifierRF, labelConverter))
 
     val model = pipeline.fit(trainDF)
 
@@ -122,21 +113,23 @@ class ForestHandler(data: DataFrame) {
     val forestDetails =
       if (optionModel.isDefined) assembleStringRF(optionModel.get.asInstanceOf[RandomForestClassificationModel])
       else "Random Forest Model not found in Pipeline"
-    Interface.output(forestDetails, "randomForest.txt")
+    Interface.output(forestDetails, "randomForest"+runTimeId+".txt")
 
     (predictions, evaluator.evaluate(predictions) * 100, "No cross-validation")
   }
-  
+
   /**Executes training and testing of pipeline with cross-validation*/
   private def executeTuning(trainDF: DataFrame, testDF: DataFrame): (DataFrame, Double, ParamMap) = {
     //Random Forest
     val classifierRF = new RandomForestClassifier()
-      .setFeaturesCol(finalAssembler.getOutputCol)
+      .setFeaturesCol(featureAssembler.getOutputCol)
       .setImpurity("entropy")
       .setFeatureSubsetStrategy("sqrt")
       .setSeed(4283)
-      .setSubsamplingRate(0.7)
+      .setSubsamplingRate(1.0)
       .setMaxBins(500)
+      .setMaxDepth(7)
+      .setNumTrees(115)
 
     //Predictions from index back to label
     val labelConverter = new IndexToString()
@@ -147,7 +140,7 @@ class ForestHandler(data: DataFrame) {
     //Pipeline chain feature transformers and random forest
     val pipeline = new Pipeline()
       .setStages(index_transformers ++
-        Array(catAssembler, labelIndexer, catSelector, finalAssembler, classifierRF, labelConverter))
+        Array(featureAssembler, labelIndexer, classifierRF, labelConverter))
 
     //****Cross-validation
     def bestEstimatorParamMap(cvModel: CrossValidatorModel): ParamMap = {
@@ -156,13 +149,17 @@ class ForestHandler(data: DataFrame) {
         .maxBy(_._2)
         ._1
     }
-    val nFolds: Int = 5
+    val nFolds: Int = 10
 
     //Grid search setup
-    val paramGrid = new ParamGridBuilder().addGrid(classifierRF.numTrees, Array(118, 115, 122, 128))
-      .addGrid(classifierRF.maxDepth, Array(7))
-      .addGrid(catSelector.numTopFeatures, Array(5))
+    val paramGrid = new ParamGridBuilder()
+      //.addGrid(classifierRF.impurity, Array("gini", "entropy"))
+      //.addGrid(classifierRF.featureSubsetStrategy, Array("sqrt", "log2"))
+      //.addGrid(classifierRF.subsamplingRate, Array(0.7, 1))
+      //.addGrid(classifierRF.maxDepth, Array(6,7))
+      .addGrid(classifierRF.numTrees, Array(105,115))      
       .build()
+      
     val evaluator = new MulticlassClassificationEvaluator()
       .setLabelCol("label")
       .setPredictionCol("prediction")
@@ -188,7 +185,6 @@ class ForestHandler(data: DataFrame) {
     val forestStructure = randomForestModel.toDebugString
     val forestImportances = randomForestModel.featureImportances.toArray.mkString(";")
     val treeImportances = randomForestModel.trees.reverse.map { x => x.featureImportances.toArray.mkString(";") }.mkString(System.lineSeparator())
-
     forestStructure +
       "TreeImportances" + System.lineSeparator() + treeImportances + System.lineSeparator() +
       "ForestImportances" + System.lineSeparator() + forestImportances

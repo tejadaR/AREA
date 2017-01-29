@@ -21,7 +21,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   //Transforming exit configuration DF to Array[Row]
   val exitConfig = inputConfig.collect()
 
-  //Duplicate-name columns to drop    
+  //Duplicate-name columns to drop
   val withoutDupDF = inputData.drop("_c13", "_c16")
 
   //Rename Columns
@@ -36,36 +36,49 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
 
   val readyDF = findExit(fullFeaturesDF, exitConfig)
 
-  val finalDF = readyDF.drop("links", "positions")
+  val finalDF = readyDF.select(
+    "runway",
+    "depAirport",
+    "aircraftType",
+    "arrTerminal",
+    //"arrGate",
+    "touchdownLat",
+    "touchdownLong",
+    "hour",
+    //"day",
+    "speed1",
+    "speed2",
+    //"carrier",
+    "traffic",
+    "exit")
 
   /** Remove irrelevant Columns, null values and departure records. */
   private def filterFlights(inputDF: DataFrame, airport: String): DataFrame = {
     //Dropping irrelevant columns and filtering departures out
-    val relevantDF = inputDF.filter(s"arrAirport=='$airport'").drop("nactId", "arrAirport", "initialGateTimeOfDeparture",
-      "scheduledTimeOfDeparture", "actualTimeOfDeparture", "scheduledTimeOfArrival",
-      "actualTimeOfArrival", "depTerminal", "depGate")
+    val relevantDF = inputDF.filter(s"arrAirport=='$airport'").select("callsign", "runway", "positions",
+      "depAirport", "arrAirport", "aircraftType", "arrTerminal", "arrGate")
 
     //Dropping null values
     val filteredDF = relevantDF.filter(relevantDF.columns.map(c => col(c) =!= "null").reduce(_ and _))
     filteredDF
-  }  
-  
+  }
+
   /** Extract necessary features and add as columns. */
   private def addFeatures(inputDF: DataFrame): DataFrame = {
     val withTouchdown = findTouchdownPos(inputDF)
     val withDayTime = findDayTime(withTouchdown)
     val withSpeeds = findSpeeds(withDayTime)
     val withCarrier = findCarrier(withSpeeds)
-    val withTraffic = findTraffic(findLandingTime(withCarrier)).drop("landingEpoch")
+    val withTraffic = findTraffic(findLandingTime(withCarrier))
     withTraffic
   }
-  
+
   /**
    * Finds the carrier using letters in the callsign column
    */
   private def findCarrier(inputDF: DataFrame): DataFrame = {
     val toStringUDF = udf((a: Seq[String]) => a.mkString(""))
-    inputDF.withColumn("carrier", toStringUDF(split(inputDF.col("callsign"), "\\d"))).drop("callsign")
+    inputDF.withColumn("carrier", toStringUDF(split(inputDF.col("callsign"), "\\d")))
   }
 
   /**
@@ -152,26 +165,24 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
    */
   private def findDayTime(inputDF: DataFrame): DataFrame = {
 
-    def calcDayTime(positions: String, timeFormat: String): String = {
+    def calcDayTime(positions: String, format: String): String = {
       val splitFirstLink = positions.split("\\|")(0).split(";")
       val epochSplit = splitFirstLink(2).split("E")
       val decimal = epochSplit(0).toDouble
       val exp = epochSplit(1).toDouble
       val milliseconds: Long = (decimal * Math.pow(10, exp)).toLong
 
-      def timeToStr(epochMillis: Long): String =
-        DateTimeFormat.forPattern(timeFormat).print(epochMillis)
+      def getTimeDecimal(epochMillis: Long): String =
+        DateTimeFormat.forPattern(format).print(epochMillis)
 
-      timeToStr(milliseconds)
+      getTimeDecimal(milliseconds)
     }
-
     val hourUDF = udf(calcDayTime(_: String, "HH"))
-    val dayUDF = udf(calcDayTime(_: String, "E"))
-
     val hourCol = hourUDF.apply(inputDF.col("positions"))
-    val dayCol = dayUDF.apply(inputDF.col("positions"))
-
     val withHourDF = inputDF.withColumn("hour", hourCol)
+
+    val dayUDF = udf(calcDayTime(_: String, "e"))
+    val dayCol = dayUDF.apply(inputDF.col("positions"))
     val withDayDF = withHourDF.withColumn("day", dayCol)
 
     withDayDF
@@ -231,7 +242,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
 
     withSpeedDF
   }
-  
+
   /**
    * Finds the landing time, assumed to be the epoch time on the first recorded
    * position for arrival flights.
@@ -251,7 +262,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   }
 
   /**
-   * Finds traffic
+   * Finds traffic based on how many additional aircraft landed in a given time interval
    */
   private def findTraffic(inputDF: DataFrame): DataFrame = {
     def getTraffic(thisEpoch: Long, epochsArr: Array[Row]): Long = {
@@ -269,5 +280,5 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
 
     inputDF.withColumn("traffic", trafficCol)
   }
-  
+
 }
