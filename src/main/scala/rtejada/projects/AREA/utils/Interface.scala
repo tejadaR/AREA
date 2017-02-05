@@ -19,15 +19,17 @@ import scala.util.Try
 
 object Interface {
 
-  /** Input prompt, returns entered airport name. */
-  def inputAirport(message: String) = readLine(message)
+  /** Input prompt, returns entered String. */
+  def inputPrompt(message: String) = readLine(message)
 
   /** Outputs string to given fileName. */
   def output(out: String, fileName: String): Unit = output(out, fileName, true)
 
   /** Outputs string to given fileName. Appending a header with a datetime is optional */
   def output(out: String, fileName: String, withoutDate: Boolean) = {
-    val pw = new PrintWriter(new File("output/" + fileName))
+    val file = new File("output/" + fileName)
+    if (!file.getParentFile.exists) file.getParentFile.mkdir
+    val pw = new PrintWriter(file)
 
     val header = (System.lineSeparator() +
       "----------------------------------------------" +
@@ -42,7 +44,9 @@ object Interface {
 
   /** Outputs JSON with a datetime value to given fileName. */
   def outputJsonWithDate(info: Map[String, String], fileName: String) = {
-    val pw = new PrintWriter(new File("output/" + fileName))
+    val file = new File("output/" + fileName)
+    if (!file.getParentFile.exists) file.getParentFile.mkdir
+    val pw = new PrintWriter(file)
 
     def assemble(value: (String, String)): String = {
       def isAllDigits(x: String) = x forall Character.isDigit
@@ -82,21 +86,24 @@ object Interface {
   }
 
   def getAirportData(airport: String): DataFrame = airport match {
-    case ic"PHX" | ic"PHOENIX" => Main.spark.read.option("header", false).csv("data/runwayFlights_PHX_*.csv")
-    case ic"ATL" | ic"ATLANTA" => Main.spark.read.option("header", false).csv("data/runwayFlights_ATL_*.csv")
+    case ic"PHX" | ic"PHOENIX"   => Main.spark.read.option("header", false).csv("data/runwayFlights_PHX_*.csv")
+    case ic"ATL" | ic"ATLANTA"   => Main.spark.read.option("header", false).csv("data/runwayFlights_ATL_*.csv")
     case ic"BWI" | ic"BALTIMORE" => Main.spark.read.option("header", false).csv("data/runwayFlights_BWI_*.csv")
+    case ic"DEN" | ic"DENVER"    => Main.spark.read.option("header", false).csv("data/runwayFlights_DEN_*.csv")
   }
 
   def getExitConfig(airport: String): DataFrame = airport match {
-    case ic"PHX" | ic"PHOENIX" => Main.spark.read.option("header", true).csv("data/exit_config_PHX.csv")
-    case ic"ATL" | ic"ATLANTA" => Main.spark.read.option("header", true).csv("data/exit_config_ATL.csv")
+    case ic"PHX" | ic"PHOENIX"   => Main.spark.read.option("header", true).csv("data/exit_config_PHX.csv")
+    case ic"ATL" | ic"ATLANTA"   => Main.spark.read.option("header", true).csv("data/exit_config_ATL.csv")
     case ic"BWI" | ic"BALTIMORE" => Main.spark.read.option("header", true).csv("data/exit_config_BWI.csv")
+    case ic"DEN" | ic"DENVER"    => Main.spark.read.option("header", true).csv("data/exit_config_DEN.csv")
   }
 
   def getAirportCode(airport: String): String = airport match {
-    case ic"PHX" | ic"PHOENIX" => "KPHX"
-    case ic"ATL" | ic"ATLANTA" => "KATL"
+    case ic"PHX" | ic"PHOENIX"   => "KPHX"
+    case ic"ATL" | ic"ATLANTA"   => "KATL"
     case ic"BWI" | ic"BALTIMORE" => "KBWI"
+    case ic"DEN" | ic"DENVER"    => "KDEN"
   }
 
   private implicit class IgnoreCaseRegex(sc: StringContext) {

@@ -33,7 +33,7 @@ object Main extends App {
     .appName("AREA")
     .getOrCreate()
   //Input
-  val airportName = Interface.inputAirport("Enter Airport: ")
+  val airportName = Interface.inputPrompt("Enter Airport: ")
 
   try {
     val startEpoch = Calendar.getInstance.getTimeInMillis

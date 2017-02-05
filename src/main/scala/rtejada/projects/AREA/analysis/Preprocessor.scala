@@ -40,8 +40,8 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
     "runway",
     "depAirport",
     "aircraftType",
-    "arrTerminal",
-    //"arrGate",
+    //"arrTerminal",
+    "arrGate",
     "touchdownLat",
     "touchdownLong",
     "hour",
@@ -56,8 +56,9 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   private def filterFlights(inputDF: DataFrame, airport: String): DataFrame = {
     //Dropping irrelevant columns and filtering departures out
     val relevantDF = inputDF.filter(s"arrAirport=='$airport'").select("callsign", "runway", "positions",
-      "depAirport", "arrAirport", "aircraftType", "arrTerminal", "arrGate")
+      "depAirport", "arrAirport", "aircraftType", "arrGate")
 
+    relevantDF.show
     //Dropping null values
     val filteredDF = relevantDF.filter(relevantDF.columns.map(c => col(c) =!= "null").reduce(_ and _))
     filteredDF
@@ -136,10 +137,10 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   private def findTouchdownPos(inputDF: DataFrame): DataFrame = {
     //latOrLong = 0 for latitude, latOrLong = 1 for longitude
     def calcTouchdownPos(positions: String, latOrLong: Integer): Double = {
-      val splitPositions = positions.split("\\|")
-      val splitFirstPos = splitPositions(0).split(";")
-      val coords = splitFirstPos(latOrLong).toDouble
-      Math.abs(coords)
+      val positionsArr = positions.split("\\|")
+      val firstPosArr = positionsArr(0).split(";")
+      val coords = firstPosArr(latOrLong).toDouble
+      coords
     }
 
     val latitudeUDF = udf(calcTouchdownPos(_: String, 0))
@@ -216,20 +217,17 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
         (set * positionsUsed) + positionsUsed)
       val speedArr = posUsedArr.sliding(2).map(pos => {
         val curMilliseconds = getMilliseconds(pos.head.split(";"))
-        val curLat = pos.head.split(";")(0)
-        val curLong = pos.head.split(";")(1)
+        val curLat = pos.head.split(";")(0).toDouble
+        val curLong = pos.head.split(";")(1).toDouble
 
         val nextMilliseconds = getMilliseconds(pos.last.split(";"))
-        val nextLat = pos.last.split(";")(0)
-        val nextLong = pos.last.split(";")(1)
+        val nextLat = pos.last.split(";")(0).toDouble
+        val nextLong = pos.last.split(";")(1).toDouble
 
         val diffMilliseconds = Math.abs(curMilliseconds.toDouble - nextMilliseconds.toDouble)
-        val diffLat = Math.abs(curLat.toDouble - nextLat.toDouble)
-        val diffLong = Math.abs(curLong.toDouble - nextLong.toDouble)
-        val euclDist = Math.sqrt(Math.pow(diffLat * 110912.29157913252, 2) +
-          Math.pow(diffLong * 92986.56694923184, 2))
+        val distance = getDistance(curLat, curLong, nextLat, nextLong)
 
-        (euclDist / (diffMilliseconds / 1000))
+        (distance / (diffMilliseconds / 1000))
       })
       BigDecimal(speedArr.sum / positionsUsed - 1).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
     }
@@ -279,6 +277,63 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
     val trafficCol = trafficUDF.apply(inputDF.col("landingEpoch"))
 
     inputDF.withColumn("traffic", trafficCol)
+  }
+
+  /**
+   * Computes distance between two (lat,long) points. This implementation is based on Thaddeus Vincenty's formulas
+   * for calculating distances on an ellipsoid: http://en.wikipedia.org/wiki/Vincenty%27s_formulae
+   */
+  private def getDistance(lat1: Double, long1: Double, lat2: Double, long2: Double): Double = {
+    val a = 6378137d // length of semi-major axis of the ellipsoid (radius at equator) 
+    val b = 6356752.314245 // length of semi-minor axis of the ellipsoid (radius at the poles)
+    val f = 1 / 298.257223563 // 	flattening of the ellipsoid
+    val L = Math.toRadians(long2 - long1) // 	difference in longitude of two points
+    val U1 = Math.atan((1 - f) * Math.tan(Math.toRadians(lat1))) // reduced latitude1 (latitude on the auxiliary sphere)
+    val U2 = Math.atan((1 - f) * Math.tan(Math.toRadians(lat2))) // reduced latitude2 (latitude on the auxiliary sphere)
+    val sinU1 = Math.sin(U1)
+    val sinU2 = Math.sin(U2)
+    val cosU1 = Math.cos(U1)
+    val cosU2 = Math.cos(U2)
+
+    val iterLimit = 95
+    //Parameters to be evaluated iteratively
+    var cosSqAlpha = 0d
+    var sinSigma = 0d
+    var cos2SigmaM = 0d
+    var cosSigma = 0d
+    var sigma = 0d // arc length between points on the auxiliary sphere
+    var lambda = L // longitude difference on the auxiliary sphere
+    var prevLambda = 0d
+
+    breakable {
+      1 to iterLimit foreach { _ =>
+        val sinLambda = Math.sin(lambda)
+        val cosLambda = Math.cos(lambda)
+        sinSigma = Math.sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda) +
+          (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) * (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda))
+        if (sinSigma == 0) break
+
+        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda
+        sigma = Math.atan2(sinSigma, cosSigma)
+        val sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma
+        cosSqAlpha = 1 - sinAlpha * sinAlpha
+        cos2SigmaM = cosSigma - 2 * sinU1 * sinU2 / cosSqAlpha
+        val C = f / 16 * cosSqAlpha * (4 + f * (4 - 3 * cosSqAlpha))
+
+        prevLambda = lambda
+        lambda = L + (1 - C) * f * sinAlpha * (sigma + C * sinSigma * (cos2SigmaM + C * cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM)))
+        if (Math.abs(lambda - prevLambda) <= 1e-12) break
+      }
+    }
+    if (sinSigma == 0 || Math.abs(lambda - prevLambda) > 1e-12) 0 else {
+      val uSq = cosSqAlpha * (a * a - b * b) / (b * b)
+      val A = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))
+      val B = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))
+      val deltaSigma = B * sinSigma * (cos2SigmaM + B / 4 * (cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM) -
+        B / 6 * cos2SigmaM * (-3 + 4 * sinSigma * sinSigma) * (-3 + 4 * cos2SigmaM * cos2SigmaM)))
+      val s = b * A * (sigma - deltaSigma) // ellipsoidal distance between the two points
+      s
+    }
   }
 
 }

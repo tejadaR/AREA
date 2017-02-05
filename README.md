@@ -2,7 +2,7 @@
 
 AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims to predict an arriving aircraft's runway exit choice. It is able to use thousands of flight records to train a Random Forest Classification Model. The model then makes predictions on a testing dataset.
 
-*Features*:
+*Functionality*:
  - **Pre-processing**: Filters out null data and discards irrelevant columns.
  - **Feature engineering**: Extracts relevant features based on given data (Eg: landing speed from array of positions and epoch times).
  - **Model hyper-parameter tuning using grid-search**: accuracy of each subset measured using cross-validation.

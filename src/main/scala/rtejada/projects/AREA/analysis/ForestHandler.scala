@@ -184,7 +184,9 @@ class ForestHandler(data: DataFrame) {
 
     val forestStructure = randomForestModel.toDebugString
     val forestImportances = randomForestModel.featureImportances.toArray.mkString(";")
-    val treeImportances = randomForestModel.trees.reverse.map { x => x.featureImportances.toArray.mkString(";") }.mkString(System.lineSeparator())
+    val treeImportances = randomForestModel.trees.reverse.map { x => 
+      x.featureImportances.toArray.mkString(";") }.mkString(System.lineSeparator())
+    
     forestStructure +
       "TreeImportances" + System.lineSeparator() + treeImportances + System.lineSeparator() +
       "ForestImportances" + System.lineSeparator() + forestImportances

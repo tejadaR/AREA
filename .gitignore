@@ -54,7 +54,9 @@ spark-tests.log
 src_managed/
 streaming-tests.log
 target/
-data/
+data/*.csv
+!data/runwayFlights_*_01202017.csv
+!data/exit_config_*.csv
 output/*.txt
 output/*.json
 bin/
