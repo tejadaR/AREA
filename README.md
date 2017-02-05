@@ -10,10 +10,17 @@ AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims 
  - **Output**: run information (feature importances, airport info, random forest info) is written to 3 files with a run ID number.
 
 ## Installation
-TBD
+
 
 ## Usage and Help
-TBD
+Currently supports the following airports:
+ - Phoenix(PHX)
+ - Atlanta(ATL)
+ - Baltimore(BWI)
+ - Denver(DEN)
+
+Every run produces 3 files in an output folder, describing the random forest model, the features used, and other run-specific information.
+
 
 #### About Spark
 
