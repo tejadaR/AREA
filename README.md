@@ -21,17 +21,17 @@ Configure your environment for ease of access.
 
 Scala-IDE for Eclipse is recommended (together with the sbteclipse plugin). Developers can just use:
 
->> sbt compile
->> sbt eclipse
+- sbt compile
+- sbt eclipse
 
 and then easily import and run the project in Scala-IDE. However, given that hadoop has been configured and the files inside the /data folder have been uploaded to HDFS, the following commands will also work
 
-> start-dfs.sh
-> start-yarn.sh
-> sbt package
-> spark-submit --class "rtejada.projects.AREA.Main" target/scala-2.11/area_2.11-1.0.jar
+- start-dfs.sh
+- start-yarn.sh
+- sbt package
+- spark-submit --class "rtejada.projects.AREA.Main" target/scala-2.11/area_2.11-1.0.jar
 
-Note that dataframes might not format correctly using the latter method, and that it will require enough memory to be configured into the spark-defaults.conf file ($SPARK_HOME/conf). The following settings have been ested to work:
+Note that dataframes might not be formatted correctly using the latter method, and that it will require enough memory to be configured into the spark-defaults.conf file ($SPARK_HOME/conf). The following settings have been tested to work:
 
 spark.driver.memory 5g
 spark.executor.memory 12g
