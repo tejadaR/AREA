@@ -10,6 +10,31 @@ AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims 
  - **Output**: run information (feature importances, airport info, random forest info) is written to 3 files with a run ID number.
 
 ## Installation
+Required:
+
+1. Latest version of Java SE Development Kit (JDK)
+2. Latest version of Scala
+3. Latest version of sbt : www.scala-sbt.org
+4. Latest version of Spark
+
+Configure your environment for ease of access.
+
+Scala-IDE for Eclipse is recommended (together with the sbteclipse plugin). Developers can just use:
+
+>> sbt compile
+>> sbt eclipse
+
+and then easily import and run the project in Scala-IDE. However, given that hadoop has been configured and the files inside the /data folder have been uploaded to HDFS, the following commands will also work
+
+> start-dfs.sh
+> start-yarn.sh
+> sbt package
+> spark-submit --class "rtejada.projects.AREA.Main" target/scala-2.11/area_2.11-1.0.jar
+
+Note that dataframes might not format correctly using the latter method, and that it will require enough memory to be configured into the spark-defaults.conf file ($SPARK_HOME/conf). The following settings have been ested to work:
+
+spark.driver.memory 5g
+spark.executor.memory 12g
 
 
 ## Usage and Help
@@ -19,8 +44,8 @@ Currently supports the following airports:
  - Baltimore(BWI)
  - Denver(DEN)
 
+The input will accept the abbreviations (not case-sensitive). 
 Every run produces 3 files in an output folder, describing the random forest model, the features used, and other run-specific information.
-
 
 #### About Spark
 

@@ -25,7 +25,9 @@ import java.util.Calendar
 object Main extends App {
   //Initialization
   PropertyConfigurator.configure("log4j.properties") // Logging configuration
-  val conf = new SparkConf().setAppName("AREA").setMaster("local[4]").set("spark.executor.memory", "12g")
+  val conf = new SparkConf().setAppName("AREA").setMaster("local[4]")
+    .set("spark.executor.memory", "12g")
+    .set("spark.executor.driver","5g")
     .set("spark.ui.showConsoleProgress", "false")
   val sc = new SparkContext(conf)
   val spark = SparkSession
