@@ -3,6 +3,7 @@ package rtejada.projects.AREA.analysis
 import org.scalatest.FlatSpec
 import org.apache.spark.sql._
 import rtejada.projects.AREA.SharedSetup
+import rtejada.projects.AREA.model.Preprocessor
 
 class PreprocessorSpec extends FlatSpec with SharedSetup {
 

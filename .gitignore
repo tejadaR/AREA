@@ -58,6 +58,7 @@ data/*.csv
 !data/exit_config_*.csv
 output/*.txt
 output/*.json
+trained/
 bin/
 processedData
 unit-tests.log

@@ -16,6 +16,7 @@ import rtejada.projects.AREA.Main
 import java.io.File
 import scala.io.StdIn.readLine
 import scala.util.Try
+import org.apache.spark.ml.PipelineModel
 
 object Interface {
 
@@ -40,6 +41,12 @@ object Interface {
     if (withoutDate) pw.write(out) else pw.write(header + out)
 
     pw.close()
+  }
+
+  def saveModel(model: PipelineModel, modelID: Long) = {
+    val file = new File("trained")
+    if (!file.exists) file.mkdir
+    model.save("trained/model"+modelID)
   }
 
   /** Outputs JSON with a datetime value to given fileName. */
@@ -85,21 +92,21 @@ object Interface {
     (process, timeStr)
   }
 
-  def getAirportData(airport: String): DataFrame = airport match {
-    case ic"PHX" | ic"PHOENIX"   => Main.spark.read.option("header", false).csv("data/runwayFlights_PHX_*.csv")
-    case ic"ATL" | ic"ATLANTA"   => Main.spark.read.option("header", false).csv("data/runwayFlights_ATL_*.csv")
-    case ic"BWI" | ic"BALTIMORE" => Main.spark.read.option("header", false).csv("data/runwayFlights_BWI_*.csv")
-    case ic"DEN" | ic"DENVER"    => Main.spark.read.option("header", false).csv("data/runwayFlights_DEN_*.csv")
+  def getAirportData(airport: String, spark: SparkSession): DataFrame = airport match {
+    case ic"PHX" | ic"PHOENIX"   => spark.read.option("header", false).csv("data/runwayFlights_PHX_*.csv")
+    case ic"ATL" | ic"ATLANTA"   => spark.read.option("header", false).csv("data/runwayFlights_ATL_*.csv")
+    case ic"BWI" | ic"BALTIMORE" => spark.read.option("header", false).csv("data/runwayFlights_BWI_*.csv")
+    case ic"DEN" | ic"DENVER"    => spark.read.option("header", false).csv("data/runwayFlights_DEN_*.csv")
   }
 
-  def getExitConfig(airport: String): DataFrame = airport match {
-    case ic"PHX" | ic"PHOENIX"   => Main.spark.read.option("header", true).csv("data/exit_config_PHX.csv")
-    case ic"ATL" | ic"ATLANTA"   => Main.spark.read.option("header", true).csv("data/exit_config_ATL.csv")
-    case ic"BWI" | ic"BALTIMORE" => Main.spark.read.option("header", true).csv("data/exit_config_BWI.csv")
-    case ic"DEN" | ic"DENVER"    => Main.spark.read.option("header", true).csv("data/exit_config_DEN.csv")
+  def getExitConfig(airport: String, spark: SparkSession): DataFrame = airport match {
+    case ic"PHX" | ic"PHOENIX"   => spark.read.option("header", true).csv("data/exit_config_PHX.csv")
+    case ic"ATL" | ic"ATLANTA"   => spark.read.option("header", true).csv("data/exit_config_ATL.csv")
+    case ic"BWI" | ic"BALTIMORE" => spark.read.option("header", true).csv("data/exit_config_BWI.csv")
+    case ic"DEN" | ic"DENVER"    => spark.read.option("header", true).csv("data/exit_config_DEN.csv")
   }
 
-  def getAirportCode(airport: String): String = airport match {
+  def getAirportCode(airport: String, spark: SparkSession): String = airport match {
     case ic"PHX" | ic"PHOENIX"   => "KPHX"
     case ic"ATL" | ic"ATLANTA"   => "KATL"
     case ic"BWI" | ic"BALTIMORE" => "KBWI"

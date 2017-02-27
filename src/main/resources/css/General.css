@@ -1,0 +1,37 @@
+.root {
+	fontColor: black;
+	textAlign: left;
+	-fx-font-size: 16;
+	-fx-font-weight: normal;
+}
+
+.selector {
+	-fx-font-size: 12;	
+}
+
+.container {
+	-fx-background-color: white;
+}
+
+.module {
+	-fx-border-color: dodgerblue;
+	-fx-border-width: 1;
+	-fx-border-style: solid;
+}
+
+.title {
+	-fx-effect: dropshadow(one-pass-box, white, 0, 1, 0, 1);
+	-fx-background-color: linear-gradient(to bottom, rgb(77, 120, 215) 0%,
+		rgb(37, 80, 175) 100%);
+	-fx-font-size: 20;
+	-fx-font-weight: bold;
+	fontColor: white;
+	textAlign: center;
+}
+
+.label {
+	-fx-text-fill: fontColor;
+	-fx-text-alignment: textAlign;
+	-fx-alignment: center;
+	-fx-border-color: yellow;
+}

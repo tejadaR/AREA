@@ -7,14 +7,16 @@
  * 	Roman Tejada - initial API and implementation
  */
 
-package rtejada.projects.AREA.analysis
+package rtejada.projects.AREA.model
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.joda.time.format.DateTimeFormat
 import scala.util.control.Breaks._
-import rtejada.projects.AREA.Main.spark.implicits._
+//import rtejada.projects.AREA.Main.spark.implicits._
+import scala.BigDecimal
+import scala.reflect.runtime.universe
 
 /** Filters bad data, extracts features and ensures dataset is labaled */
 class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: String) extends Serializable {
