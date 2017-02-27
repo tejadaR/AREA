@@ -10,11 +10,13 @@ AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims 
  - **Airport Flexibility**: User is able to input an airport to analyze. It is able to be configured for any runway configuration.
  - **Output**: run information (feature importances, airport info, random forest info) is written to 3 files with a run ID number.
 
-To deploy the GUI with all dependencies included, use:
+Scala, JDK, and sbt are required. To deploy the GUI with all dependencies included, use:
 
  - sbt assembly
 
-in the project's root folder.
+in the project's root folder. Then run with:
+
+ - java -jar /path/AREA-assembly-2.X.jar
 
 ## Development Instructions
 Required:
