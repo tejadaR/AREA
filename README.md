@@ -18,6 +18,8 @@ in the project's root folder. Then run with:
 
  - java -jar /path/AREA-assembly-2.X.jar
 
+If running in Windows, download hadoop's winutils.exe and save as: C:\winutil\bin\winutils.exe
+
 ## Development Instructions
 Required:
 

@@ -40,7 +40,8 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
         text = "Run" + runID + System.lineSeparator() + forestRun.getAirportCode +
           ", Acc: " + forestRun.getAccuracy + "%"
         onAction = (ae: ActionEvent) => {
-          view.tab.getTabPane.getTabs.add(resultsView.tab)
+          if (!view.tab.getTabPane.getTabs.contains(resultsView.tab))
+            view.tab.getTabPane.getTabs.add(resultsView.tab)
         }
       }
     }
@@ -161,7 +162,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
       }
       case Failure(e) => {
         Platform.runLater {
-          view.analysisBox.statusLabel.text = "Run Failed...Standing by"
+          view.analysisBox.statusLabel.text = e.getMessage//"Run Failed...Standing by"
           view.analysisBox.runButton.disable = false
           view.analysisBox.runPb.progress = 0
           view.analysisBox.runPb.visible = false

@@ -28,10 +28,12 @@ class MLModel {
   val modelMap = HashMap[String, Tuple2[PipelineModel, Array[Feature]]]()
 
   PropertyConfigurator.configure("log4j.properties") // Logging configuration
-  val conf = new SparkConf().setAppName("AREA").setMaster("local[4]")
-    .set("spark.executor.memory", "12g")
-    .set("spark.executor.driver", "5g")
+  val conf = new SparkConf().setAppName("AREA").setMaster("local[*]")
+    .set("spark.executor.memory", "4g")
+    .set("spark.executor.driver", "4g")
+    .set("spark.driver.memory", "5g")
     .set("spark.ui.showConsoleProgress", "false")
+  System.setProperty("hadoop.home.dir", "c:\\winutil\\") //running on windows
   val sc = new SparkContext(conf)
   val spark = SparkSession
     .builder()
@@ -67,56 +69,45 @@ class MLModel {
     if (dir.exists && dir.isDirectory) dir.listFiles.filter(_.isDirectory).toSeq.map(_.getName) else Seq[File]().map(_.getName)
   }
 
-  def runModel(airport: String, treeNum: Int, depthNum: Int, view: OptionsView) {
-    try {
-      val startEpoch = Calendar.getInstance.getTimeInMillis
+  def runModel(airport: String, treeNum: Int, depthNum: Int, view: OptionsView): String = {
+    val startEpoch = Calendar.getInstance.getTimeInMillis
 
-      val dataDF = Interface.getAirportData(airport, spark)
-      val configDF = Interface.getExitConfig(airport, spark)
-      val airportCode = Interface.getAirportCode(airport, spark)
-      Platform.runLater {
-        view.analysisBox.statusLabel.text = "Pre-processing data"
-        view.analysisBox.runPb.progress = 0.1
-      }
-      val preProcessor = new Preprocessor(dataDF, configDF, airportCode)
-      val processedDF = preProcessor.finalDF.cache()
-      Platform.runLater {
-        view.analysisBox.statusLabel.text = "Generating features..."
-        view.analysisBox.runPb.progress = 0.3
-      }
-      val forestHandler = new ForestHandler(processedDF, view, treeNum, depthNum)
-      val predictions = forestHandler.predictions
-      val accuracy = forestHandler.accuracy
-      val trainCount = forestHandler.trainingData.count
-      val testCount = forestHandler.testingData.count
-      val runDuration = Calendar.getInstance.getTimeInMillis - startEpoch
-
-      predictions.show(false)
-
-      println(f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${testCount} test records")
-      println(forestHandler.bestParams)
-
-      val runInfoMap: Map[String, String] = Map("airportCode" -> airportCode,
-        "accuracy" -> accuracy.toString,
-        "numRunways" -> preProcessor.finalDF.select("runway").distinct.count.toString,
-        "numExits" -> preProcessor.finalDF.select("exit").distinct.count.toString,
-        "trainCount" -> trainCount.toString,
-        "testCount" -> testCount.toString,
-        "runDuration" -> runDuration.toString)
-
-      Interface.saveModel(forestHandler.finalModel, forestHandler.runTimeId)
-      Interface.outputJsonWithDate(runInfoMap, "runInfo" + forestHandler.runTimeId + ".json")
-
-    } catch {
-      case ex: FileNotFoundException => println(s"Data or config not found for Airport: \'$airport\' " + ex)
-      case ex: AnalysisException     => println(s"Invalid query using Airport: \'$airport\' " + ex)
-      case ex: MatchError            => println("Unable to match: " + ex.getMessage())
-      case ex: IOException           => println("IO Exception " + ex)
-      case other: Throwable          => println("Exception: " + other.printStackTrace())
-
-    } finally {
-      println("Exiting " + Calendar.getInstance().getTime)
+    val dataDF = Interface.getAirportData(airport, spark)
+    val configDF = Interface.getExitConfig(airport, spark)
+    val airportCode = Interface.getAirportCode(airport, spark)
+    Platform.runLater {
+      view.analysisBox.statusLabel.text = "Pre-processing data"
+      view.analysisBox.runPb.progress = 0.1
     }
+    val preProcessor = new Preprocessor(dataDF, configDF, airportCode)
+    val processedDF = preProcessor.finalDF.cache()
+    Platform.runLater {
+      view.analysisBox.statusLabel.text = "Generating features..."
+      view.analysisBox.runPb.progress = 0.3
+    }
+    val forestHandler = new ForestHandler(processedDF, view, treeNum, depthNum)
+    val predictions = forestHandler.predictions
+    val accuracy = forestHandler.accuracy
+    val trainCount = forestHandler.trainingData.count
+    val testCount = forestHandler.testingData.count
+    val runDuration = Calendar.getInstance.getTimeInMillis - startEpoch
+
+    predictions.show(false)
+
+    println(f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${testCount} test records")
+    println(forestHandler.bestParams)
+
+    val runInfoMap: Map[String, String] = Map("airportCode" -> airportCode,
+      "accuracy" -> accuracy.toString,
+      "numRunways" -> preProcessor.finalDF.select("runway").distinct.count.toString,
+      "numExits" -> preProcessor.finalDF.select("exit").distinct.count.toString,
+      "trainCount" -> trainCount.toString,
+      "testCount" -> testCount.toString,
+      "runDuration" -> runDuration.toString)
+
+    Interface.saveModel(forestHandler.finalModel, forestHandler.runTimeId)
+    Interface.outputJsonWithDate(runInfoMap, "runInfo" + forestHandler.runTimeId + ".json")
+    f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${testCount} test records"
   }
 
 }

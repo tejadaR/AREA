@@ -24,6 +24,17 @@ import java.util.Calendar
 /** Entry point for project AREA.*/
 object Main extends App {
 
-  val mainApp = new MainApp().main(args)
+  try {
+    val mainApp = new MainApp().main(args)
+  } catch {
+    case ex: FileNotFoundException => println("Data or config data not found " + ex)
+    case ex: AnalysisException     => println("Invalid query using selected airport" + ex)
+    case ex: MatchError            => println("Unable to match: " + ex.getMessage())
+    case ex: IOException           => println("IO Exception " + ex)
+    case other: Throwable          => println("Exception: " + other.printStackTrace())
+
+  } finally {
+    println("Exiting " + Calendar.getInstance().getTime)
+  }
 
 }

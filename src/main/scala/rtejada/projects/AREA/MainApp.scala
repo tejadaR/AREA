@@ -10,10 +10,13 @@ import scalafx.scene.paint.Color
 import scalafx.scene.control._
 import scalafx.scene.control.TabPane.TabClosingPolicy
 import rtejada.projects.AREA.view.OptionsView
+import scalafx.stage.Screen
 
 class MainApp extends JFXApp {
-  val stageWidth = 1280D
-  val stageHeight = 720D
+  val stageX = Screen.primary.bounds.minX
+  val stageY = Screen.primary.bounds.minY
+  val stageWidth = Screen.primary.bounds.width
+  val stageHeight = Screen.primary.bounds.height
 
   val mlModel: MLModel = new MLModel
   val optionsController: OptionsController = new OptionsController(mlModel, optionsView, stageWidth, stageHeight)
@@ -21,6 +24,8 @@ class MainApp extends JFXApp {
 
   stage = new PrimaryStage {
     title = "Airport Runway Exit Analysis"
+    x = stageX
+    y = stageY
     width = stageWidth
     height = stageHeight
 

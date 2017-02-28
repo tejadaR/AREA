@@ -1,20 +1,19 @@
 lazy val root = (project in file(".")).
   settings(
-  name := "AREA",
-  version := "2.0",
   scalaVersion := "2.11.8",
-  mainClass in Compile := Some("rtejada.projects.AREA.Main") 
+  mainClass in assembly := Some("rtejada.projects.AREA.Main"),
+  assemblyJarName in assembly := "AREA_2.0.jar",
+  test in assembly := {}
   )
 
-libraryDependencies += "org.apache.spark" %% "spark-core" % "2.0.0" % "provided" withSources() withJavadoc()
-libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.0.0" % "provided"  withSources() withJavadoc()
+libraryDependencies += "org.apache.spark" %% "spark-core" % "2.0.0" withSources() withJavadoc()
+libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.0.0" withSources() withJavadoc()
 libraryDependencies += "org.apache.spark" %% "spark-mllib" % "2.0.2" withSources() withJavadoc()
 libraryDependencies += "joda-time" % "joda-time" % "2.9.4" withJavadoc()
-libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.1" % "provided" 
+libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.1" % "provided"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.92-R10" withSources() withJavadoc()
 libraryDependencies += "net.liftweb" %% "lift-json" % "2.6+" withSources() withJavadoc()
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.9"
 
 EclipseKeys.withSource := true
 EclipseKeys.withJavadoc := true
@@ -40,8 +39,3 @@ assemblyMergeStrategy in assembly := {
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
 }
-
-// put all libs in the lib_managed directory, that way we can distribute eclipse project files
-retrieveManaged := true
-    
-EclipseKeys.relativizeLibs := true
