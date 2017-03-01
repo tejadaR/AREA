@@ -47,11 +47,10 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
     "touchdownLat",
     "touchdownLong",
     "hour",
-    //"day",
-    "speed1",
-    "speed2",
-    //"carrier",
-    "traffic",
+    "day",
+    "decel",
+    "carrier",
+    //"traffic",
     "exit")
 
   /** Remove irrelevant Columns, null values and departure records. */
@@ -70,7 +69,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   private def addFeatures(inputDF: DataFrame): DataFrame = {
     val withTouchdown = findTouchdownPos(inputDF)
     val withDayTime = findDayTime(withTouchdown)
-    val withSpeeds = findSpeeds(withDayTime)
+    val withSpeeds = findDecel(withDayTime)
     val withCarrier = findCarrier(withSpeeds)
     val withTraffic = findTraffic(findLandingTime(withCarrier))
     withTraffic
@@ -192,53 +191,62 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   }
 
   /**
-   * Finds breaking speeds using a user-defined function.
+   * Finds deceleration using a user-defined function.
    *
-   * Uses longitudes and epochs on a set of recorded positions to find an
-   * average landing speed. If there are less than 20 recorded positions,
-   * it will take the average of any available positions
+   * Uses the first 20 recorded positions to calculate deceleration.
+   * If there are less than 20 recorded positions,
+   * it will use any available positions
    *
-   * Returns DataFrame with two breaking speed columns
+   * Returns DataFrame with a "decel"(deceleration) columns
    */
-  private def findSpeeds(inputDF: DataFrame): DataFrame = {
+  private def findDecel(inputDF: DataFrame): DataFrame = {
 
     def calcSpeed(positions: String, set: Integer): Double = {
       val posArraySize = positions.split("\\|").length
-      val isEven = (number: Int) => number % 2 == 0
+      val positionsUsed = Math.min(posArraySize, 20)
 
-      val positionsUsed = if (posArraySize < 20) {
-        if (isEven(posArraySize)) posArraySize / 2 else (posArraySize - 1) / 2
-      } else 10
-
-      def getMilliseconds(input: Array[String]): Long = {
-        val decimal = input(2).split("E")(0).toDouble
-        val exponential = input(2).split("E")(1).toDouble
+      def getMilliseconds(latLongEpochArr: Array[String]): Long = {
+        val decimal = latLongEpochArr(2).split("E")(0).toDouble
+        val exponential = latLongEpochArr(2).split("E")(1).toDouble
         (decimal * Math.pow(10, exponential)).toLong
       }
-      val posUsedArr = positions.split("\\|").slice((set * positionsUsed),
-        (set * positionsUsed) + positionsUsed)
-      val speedArr = posUsedArr.sliding(2).map(pos => {
-        val curMilliseconds = getMilliseconds(pos.head.split(";"))
-        val curLat = pos.head.split(";")(0).toDouble
-        val curLong = pos.head.split(";")(1).toDouble
+      val posUsedArr = positions.split("\\|").slice(0, positionsUsed)
 
-        val nextMilliseconds = getMilliseconds(pos.last.split(";"))
-        val nextLat = pos.last.split(";")(0).toDouble
-        val nextLong = pos.last.split(";")(1).toDouble
+      val firstLat = posUsedArr.head.split(";")(0).toDouble
+      val firstLong = posUsedArr.head.split(";")(1).toDouble
+      val firstMilliseconds = getMilliseconds(posUsedArr.head.split(";"))
 
-        val diffMilliseconds = Math.abs(curMilliseconds.toDouble - nextMilliseconds.toDouble)
-        val distance = getDistance(curLat, curLong, nextLat, nextLong)
+      val secondLat = posUsedArr(1).split(";")(0).toDouble
+      val secondLong = posUsedArr(1).split(";")(1).toDouble
+      val secondMilliseconds = getMilliseconds(posUsedArr(1).split(";"))
 
-        (distance / (diffMilliseconds / 1000))
-      })
-      BigDecimal(speedArr.sum / positionsUsed - 1).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+      val initDistance = getDistance(firstLat, firstLong, secondLat, secondLong)
+      val initDiffMilliseconds = Math.abs(firstMilliseconds.toDouble - secondMilliseconds.toDouble)
+
+      val initialSpeed = (initDistance / (initDiffMilliseconds / 1000))
+
+      val penUltLat = posUsedArr.dropRight(1).last.split(";")(0).toDouble
+      val penUltLong = posUsedArr.dropRight(1).last.split(";")(1).toDouble
+      val penUltMilliseconds = getMilliseconds(posUsedArr.dropRight(1).last.split(";"))
+
+      val lastLat = posUsedArr.last.split(";")(0).toDouble
+      val lastLong = posUsedArr.last.split(";")(1).toDouble
+      val lastMilliseconds = getMilliseconds(posUsedArr.last.split(";"))
+
+      val endingDistance = getDistance(penUltLat, penUltLong, lastLat, lastLong)
+      val endingDiffMilliseconds = Math.abs(penUltMilliseconds.toDouble - lastMilliseconds.toDouble)
+
+      val endingSpeed = (endingDistance / (endingDiffMilliseconds / 1000))
+
+      val speedDiff = (endingSpeed-initialSpeed)
+      val timeDiff = Math.abs(lastMilliseconds-secondMilliseconds) / 1000
+
+      BigDecimal(speedDiff / timeDiff).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
     }
-    val speedUDF1 = udf(calcSpeed(_: String, 0))
-    val speedCol1 = speedUDF1.apply(inputDF.col("positions"))
-    val speedUDF2 = udf(calcSpeed(_: String, 1))
-    val speedCol2 = speedUDF2.apply(inputDF.col("positions"))
+    val decelUDF = udf(calcSpeed(_: String, 0))
+    val decelCol = decelUDF.apply(inputDF.col("positions"))
 
-    val withSpeedDF = inputDF.withColumn("speed1", speedCol1.cast(DoubleType)).withColumn("speed2", speedCol2.cast(DoubleType))
+    val withSpeedDF = inputDF.withColumn("decel", decelCol.cast(DoubleType))
 
     withSpeedDF
   }

@@ -25,6 +25,7 @@ import rtejada.projects.AREA.view.ResultsView
 /** Controller implementation */
 class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double, height: Double) {
   val model = mlModel
+
   def onRefreshResults: Seq[Button] = {
     val dir = new File("output")
     val fileSeq = if (dir.exists && dir.isDirectory) dir.listFiles.filter(_.isFile).toSeq else Seq[File]()
@@ -34,11 +35,11 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
       val forestRun = new ForestRun("output/features" + runID + ".json",
         "output/randomForest" + runID + ".txt",
         "output/runInfo" + runID + ".json")
-      val resultsController: ResultsController = new ResultsController(model)
+      val resultsController: ResultsController = new ResultsController(model, forestRun)
       val resultsView: ResultsView = new ResultsView(resultsController, forestRun, width, height)
       new Button {
         text = "Run" + runID + System.lineSeparator() + forestRun.getAirportCode +
-          ", Acc: " + forestRun.getAccuracy + "%"
+          ", Acc: " + BigDecimal(forestRun.getAccuracy).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%"
         onAction = (ae: ActionEvent) => {
           if (!view.tab.getTabPane.getTabs.contains(resultsView.tab))
             view.tab.getTabPane.getTabs.add(resultsView.tab)
@@ -107,7 +108,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
           view.analysisBox.singleTestModule.loadButton.disable = false
           val selectorArray = featureArray.map(feat => {
             val hBox = new HBox
-            val label = new Label(feat.featureName)
+            val label = new Label(formatFeature(feat.featureName))
             if (feat.featureType == "categorical") {
               val selector = new ChoiceBox[String] { id = feat.featureName + "selector" }
               selector.items = feat.categories match {
@@ -162,7 +163,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
       }
       case Failure(e) => {
         Platform.runLater {
-          view.analysisBox.statusLabel.text = e.getMessage//"Run Failed...Standing by"
+          view.analysisBox.statusLabel.text = e.getMessage //"Run Failed...Standing by"
           view.analysisBox.runButton.disable = false
           view.analysisBox.runPb.progress = 0
           view.analysisBox.runPb.visible = false
@@ -171,6 +172,21 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
         e.printStackTrace
       }
     }
+  }
+
+  private def formatFeature(in: String): String = in match {
+    case "runway"        => "Runway"
+    case "depAirport"    => "Origin Airport"
+    case "aircraftType"  => "Aircraft Type"
+    case "arrTerminal"   => "Arrival Terminal"
+    case "arrGate"       => "Arrival Gate"
+    case "touchdownLat"  => "Touchdown Latitude"
+    case "touchdownLong" => "Touchdown Longitude"
+    case "hour"          => "Hour"
+    case "day"           => "Day of Week"
+    case "decel"         => "Deceleration(m/s\u00B2)"
+    case "carrier"       => "Airline"
+    case "traffic"       => "Traffic"
   }
 
 }

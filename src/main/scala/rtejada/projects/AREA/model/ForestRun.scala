@@ -39,8 +39,8 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String) {
   val maxDepth = getMaxDepth(importanceLine, lineArray)
 
   val forest = assembleTrees(importanceLine, lineArray)
-  def getForestNumTrees(): Int = forest.length
-  def getForestMaxDepth(): Int = maxDepth
+  def getForestNumTrees: Int = forest.length
+  def getForestMaxDepth: Int = maxDepth
 
   /** Parses random forest output line by line, building node hierarchy for each tree */
   private def assembleTrees(endLine: Int, lineArray: Array[String]): List[TreeNode] = {
@@ -207,5 +207,5 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String) {
 
 case class Feature(featureName: String, featureType: String, categories: Option[Array[String]])
 
-case class RunData(airportCode: String, accuracy: Long, numRunways: Integer,
+case class RunData(airportCode: String, accuracy: Double, numRunways: Integer,
                    numExits: Integer, trainCount: Integer, testCount: Integer, runDuration: Integer, date: String)
