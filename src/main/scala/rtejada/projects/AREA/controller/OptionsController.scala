@@ -21,30 +21,126 @@ import java.io.File
 import rtejada.projects.AREA.model.ForestRun
 import scalafx.event.ActionEvent
 import rtejada.projects.AREA.view.ResultsView
+import scalafx.scene.layout.StackPane
+import scalafx.scene.image.ImageView
+import scalafx.scene.image.Image
+import scalafx.geometry.Pos
+import scalafx.scene.layout.AnchorPane
+import org.apache.commons.io.FileUtils
 
 /** Controller implementation */
-class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double, height: Double) {
+class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Double, stageH: Double) {
   val model = mlModel
 
-  def onRefreshResults: Seq[Button] = {
+  def onClearRun(id: String) {
+    val runFuture = Future {
+      def deletDir(file: File): Unit = {
+        if (file.isDirectory)
+          file.listFiles.foreach(deletDir)
+        if (file.exists && !file.delete)
+          throw new Exception(s"Unable to delete ${file.getAbsolutePath}")
+      }
+      FileUtils.deleteQuietly(new File("output/features" + id + ".json"))
+      FileUtils.deleteQuietly(new File("output/randomForest" + id + ".txt"))
+      FileUtils.deleteQuietly(new File("output/runInfo" + id + ".json"))
+      deletDir(new File("trained/model" + id))
+    }
+    runFuture.onComplete {
+      case Success(s) => {
+        Platform.runLater {
+          {
+            onRefresh
+            view.analysisBox.singleTestModule.modelSelector.items = ObservableBuffer(model.getModels)
+
+          }
+        }
+      }
+      case Failure(e) => { Platform.runLater(e.printStackTrace) }
+    }
+  }
+
+  def onClearAll {
+    val runFuture = Future {
+      def deletDir(file: File): Unit = {
+        if (file.isDirectory)
+          file.listFiles.foreach(deletDir)
+        if (file.exists && !file.delete)
+          throw new Exception(s"Unable to delete ${file.getAbsolutePath}")
+      }
+      deletDir(new File("trained/"))
+      deletDir(new File("output/"))
+    }
+    runFuture.onComplete {
+      case Success(s) => {
+        Platform.runLater {
+          {
+            onRefresh
+            view.analysisBox.singleTestModule.modelSelector.items = ObservableBuffer(model.getModels)
+
+          }
+        }
+      }
+      case Failure(e) => { Platform.runLater(e.printStackTrace) }
+    }
+  }
+
+  def onRefresh: Unit = {
+    val buttons = getButtonSeq
+    view.analysisBox.singleTestModule.modelSelector.items = ObservableBuffer(model.getModels)
+    view.resultsBox.resultsPane.children = buttons
+  }
+
+  def getButtonSeq: Seq[AnchorPane] = {
     val dir = new File("output")
     val fileSeq = if (dir.exists && dir.isDirectory) dir.listFiles.filter(_.isFile).toSeq else Seq[File]()
-
-    for (file <- fileSeq if file.getName.contains("runInfo")) yield {
+    val filteredSeq = fileSeq.filter { file =>
+      {
+        val runID = file.getName.filter(_.isDigit)
+        if (file.getName.contains("runInfo")) {
+          new File("output/features" + runID + ".json").exists &&
+            new File("output/randomForest" + runID + ".txt").exists
+        } else if (file.getName.contains("features")) {
+          new File("output/runInfo" + runID + ".json").exists &&
+            new File("output/randomForest" + runID + ".txt").exists
+        } else {
+          new File("output/features" + runID + ".json").exists &&
+            new File("output/runInfo" + runID + ".json").exists
+        }
+      }
+    }
+    for (file <- filteredSeq if file.getName.contains("runInfo")) yield {
       val runID = file.getName.filter(_.isDigit)
       val forestRun = new ForestRun("output/features" + runID + ".json",
         "output/randomForest" + runID + ".txt",
         "output/runInfo" + runID + ".json")
       val resultsController: ResultsController = new ResultsController(model, forestRun)
-      val resultsView: ResultsView = new ResultsView(resultsController, forestRun, width, height)
-      new Button {
+      val resultsView: ResultsView = new ResultsView(resultsController, forestRun, stageW, stageH)
+      val pane = new AnchorPane
+      val closeButton = new Button {
+        graphic = new ImageView {
+          image = new Image(this.getClass.getResourceAsStream("/img/close.png"),
+            stageH * 0.01, stageH * 0.01, true, true)
+        }
+        maxWidth = stageH * 0.005
+        maxHeight = stageH * 0.005
+        onAction = (ae: ActionEvent) => {
+          onClearRun(runID)
+        }
+      }
+      val mainButton = new Button {
         text = "Run" + runID + System.lineSeparator() + forestRun.getAirportCode +
           ", Acc: " + BigDecimal(forestRun.getAccuracy).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%"
         onAction = (ae: ActionEvent) => {
           if (!view.tab.getTabPane.getTabs.contains(resultsView.tab))
             view.tab.getTabPane.getTabs.add(resultsView.tab)
+          view.tab.getTabPane.getSelectionModel.select(resultsView.tab)
         }
+        prefWidth = stageW * 0.1
+        prefHeight = stageH * 0.06
       }
+      pane.children.addAll(mainButton, closeButton)
+      AnchorPane.setRightAnchor(closeButton, 0)
+      pane
     }
   }
 
@@ -95,32 +191,39 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
 
   def onLoad(modelName: String): Unit = {
     view.analysisBox.singleTestModule.statusLabel.text = "Loading model..."
+    view.analysisBox.singleTestModule.paramPane.visible = false
     view.analysisBox.singleTestModule.paramPane.children.clear
     view.analysisBox.singleTestModule.testButton.disable = true
     view.analysisBox.singleTestModule.loadButton.disable = true
     view.analysisBox.singleTestModule.testLabel.text = ""
     val runFuture = Future { model.loadModel(modelName, view) }
     runFuture.onComplete {
-      case Success(featureArray) => {
+      case Success(loaded) => {
         Platform.runLater {
-          view.analysisBox.singleTestModule.statusLabel.text = modelName + " loaded"
+          val featureArray = loaded._3
+          view.analysisBox.singleTestModule.statusLabel.text = " loaded: " + modelName + " " +
+            loaded._1 + ", Acc: " + BigDecimal(loaded._2).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%"
           view.analysisBox.singleTestModule.testButton.disable = false
           view.analysisBox.singleTestModule.loadButton.disable = false
+          view.analysisBox.singleTestModule.paramPane.visible = true
           val selectorArray = featureArray.map(feat => {
             val hBox = new HBox
-            val label = new Label(formatFeature(feat.featureName))
+            hBox.spacing = (view.analysisBox.singleTestModule.prefWidth.value * 0.015)
+            val label = new Label(formatFeature(feat.featureName) + ":")
             if (feat.featureType == "categorical") {
               val selector = new ChoiceBox[String] { id = feat.featureName + "selector" }
               selector.items = feat.categories match {
                 case None             => ObservableBuffer.empty
-                case Some(categories) => ObservableBuffer(categories.toSeq)
+                case Some(categories) => ObservableBuffer(categories.toSeq.sorted)
               }
+              selector.getSelectionModel.selectFirst
               hBox.children.addAll(label, selector)
               hBox
             } else {
               val validDouble = Pattern.compile("-?((\\d*)|(\\d+\\.\\d*))")
               val converter = new DoubleStringConverter
               val selector = new TextField { id = feat.featureName + "selector" }
+              selector.prefWidth = view.analysisBox.singleTestModule.prefWidth.value * 0.1
               val filter: (Change) => Change = { change: Change =>
                 {
                   val newText = change.getControlNewText
@@ -145,31 +248,39 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, width: Double
     }
   }
 
-  def onRun(airport: String, treeNum: Int, depthNum: Int): Unit = {
-    view.analysisBox.statusLabel.text = "Loading data..."
-    view.analysisBox.runButton.disable = true
-    view.analysisBox.runPb.visible = true
-    view.resultsBox.refreshButton.disable = true
-    val runFuture = Future { model.runModel(airport, treeNum, depthNum, view) }
-    runFuture.onComplete {
-      case Success(value) => {
-        Platform.runLater {
-          view.analysisBox.statusLabel.text = "Run Completed... standing by"
-          view.analysisBox.runButton.disable = false
-          view.analysisBox.runPb.progress = 0
-          view.analysisBox.runPb.visible = false
-          view.resultsBox.refreshButton.disable = false
+  def onRun(cbTilePane: TilePane, airport: String, treeNum: Int, depthNum: Int): Unit = {
+    val cbList = cbTilePane.children.toList.
+      map(node => node.asInstanceOf[javafx.scene.control.CheckBox]).
+      filter(cb => cb.selected.apply)
+    if (cbList.length < 5)
+      view.analysisBox.statusLabel.text = "Please select 5 or more features to run."
+    else {
+      val featureList = cbList.map(cb => cb.getId)
+      view.analysisBox.statusLabel.text = "Loading data..."
+      view.analysisBox.runButton.disable = true
+      view.analysisBox.runPb.visible = true
+      view.analysisBox.refreshButton.disable = true
+      val runFuture = Future { model.runModel(airport, treeNum, depthNum, featureList, view) }
+      runFuture.onComplete {
+        case Success(value) => {
+          Platform.runLater {
+            view.analysisBox.statusLabel.text = "Run Completed... standing by"
+            view.analysisBox.runButton.disable = false
+            view.analysisBox.runPb.progress = 0
+            view.analysisBox.runPb.visible = false
+            view.analysisBox.refreshButton.disable = false
+          }
         }
-      }
-      case Failure(e) => {
-        Platform.runLater {
-          view.analysisBox.statusLabel.text = e.getMessage //"Run Failed...Standing by"
-          view.analysisBox.runButton.disable = false
-          view.analysisBox.runPb.progress = 0
-          view.analysisBox.runPb.visible = false
-          view.resultsBox.refreshButton.disable = false
+        case Failure(e) => {
+          Platform.runLater {
+            view.analysisBox.statusLabel.text = e.getMessage //"Run Failed...Standing by"
+            view.analysisBox.runButton.disable = false
+            view.analysisBox.runPb.progress = 0
+            view.analysisBox.runPb.visible = false
+            view.analysisBox.refreshButton.disable = false
+          }
+          e.printStackTrace
         }
-        e.printStackTrace
       }
     }
   }

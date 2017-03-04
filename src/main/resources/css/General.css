@@ -2,11 +2,17 @@
 	fontColor: black;
 	textAlign: left;
 	-fx-font-size: 16;
-	-fx-font-weight: normal;
+	-fx-font-weight: 600;
 }
 
 .selector {
-	-fx-font-size: 12;	
+	-fx-font-size: 12;
+}
+
+.summary {
+	-fx-font-size: 18;
+	fontColor: navy;
+	-fx-font-weight: 700;
 }
 
 .container {
@@ -19,19 +25,39 @@
 	-fx-border-style: solid;
 }
 
+.subModule {
+	-fx-border-color: lightgray;
+	-fx-border-width: 2;
+	-fx-border-radius: 10;
+	-fx-border-style: bevel;
+	-fx-border-color: lightgray;
+}
+
 .title {
-	-fx-effect: dropshadow(one-pass-box, white, 0, 1, 0, 1);
-	-fx-background-color: linear-gradient(to bottom, rgb(77, 120, 215) 0%,
-		rgb(37, 80, 175) 100%);
+	-fx-background-color: linear-gradient(to bottom, rgb(67, 110, 215) 0%,
+		rgb(17, 60, 175) 100%);
 	-fx-font-size: 20;
 	-fx-font-weight: bold;
 	fontColor: white;
 	textAlign: center;
 }
 
+.statusLabel {
+	-fx-effect: dropshadow(gaussian, deepskyblue, 1, 1, -1, 1);
+	-fx-background-color: linear-gradient(to bottom, lavender 0%, deepskyblue 100%);
+	-fx-background-radius: 10;
+	-fx-font-size: 16;
+	fontColor: black;
+	textAlign: center;
+	-fx-font-weight: bold;
+	-fx-border-color: deepskyblue;
+	-fx-border-width: 3;
+	-fx-border-radius: 10;
+	-fx-border-style: bevel;
+}
+
 .label {
 	-fx-text-fill: fontColor;
 	-fx-text-alignment: textAlign;
 	-fx-alignment: center;
-	-fx-border-color: yellow;
 }

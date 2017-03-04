@@ -12,6 +12,8 @@ import scalafx.scene.image.{ Image, ImageView }
 import rtejada.projects.AREA.controller.ResultsController
 import rtejada.projects.AREA.model.ForestRun
 import scalafx.scene.chart.PieChart
+import scalafx.geometry.Side
+import scalafx.scene.text.TextAlignment
 
 class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageWidth: Double, stageHeight: Double) {
   val tab = new Tab
@@ -53,34 +55,45 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     headerPane.styleClass.add("title")
     bodyPane.prefWidth = w
     bodyPane.prefHeight = h * 0.92
+    AnchorPane.setAnchors(headerBox, 0, headerPane.getPrefWidth * 0.05d, 0, headerPane.getPrefWidth * 0.05d)
 
+    val detailsPane = new AnchorPane
     val detailsBox = new VBox
-    val lblAcc = new Label("Accuracy: " + forestRun.getAccuracy + "%")
+    val lblAcc = new Label("Accuracy: " + BigDecimal(forestRun.getAccuracy).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%")
     val lblTrainRecords = new Label("Training Records: " + forestRun.getTrainCount)
     val lblTestRecords = new Label("Testing Records: " + forestRun.getTestCount)
     val lblDuration = new Label("Run Duration: " + controller.getMinSecStr(forestRun.getDuration))
     val lblDate = new Label(forestRun.getDate)
     detailsBox.children.addAll(lblAcc, lblTrainRecords, lblTestRecords, lblDuration, lblDate)
+    detailsBox.spacing = h * 0.1
+    detailsBox.prefWidth = w * 0.3
+    detailsBox.styleClass.add("summary")
+    detailsPane.children.add(detailsBox)
 
     val featurePie = new PieChart {
       data = forestRun.forestImportances.zipWithIndex.map {
         case (importance, index) =>
-          PieChart.Data(forestRun.getFeatureName(index), importance)
+          PieChart.Data(controller.formatFeature(forestRun.getFeatureName(index)), importance)
       }
+      title = "Forest Feature Importances"
+      legendSide = Side.Bottom
+      labelLineLength = 20
+      startAngle = 180
       clockwise = false
       prefHeight = h
+      prefWidth = w * 0.4
+      animated = true
     }
 
-    val lblImportancesLabelTitle = new Label("Forest Feature Importances: " + System.lineSeparator())
     val lblImportancesLabel = new Label(forestRun.forestImportances.zipWithIndex.map {
-      case (importance, index) => "\t" + forestRun.getFeatureName(index) + ": " +
-        "%.2f".format(importance * 100).toDouble + " %" + System.lineSeparator()
+      case (importance, index) => "\t" + controller.formatFeature(forestRun.getFeatureName(index)) + ": " +
+        "%.2f".format(importance * 100).toDouble + " %" + System.lineSeparator() + System.lineSeparator()
     }.mkString)
-    val forestImportancesBox = new VBox()
-    forestImportancesBox.children.addAll(lblImportancesLabelTitle, lblImportancesLabel)
     val forestImportancesPane = new AnchorPane()
-    forestImportancesPane.children.addAll(forestImportancesBox)
+    forestImportancesPane.children.addAll(lblImportancesLabel)
+    forestImportancesPane.prefWidth = w * 0.3
 
+    AnchorPane.setAnchors(bodyBox, w * 0.01, 0, 0, w * 0.01)
     bodyBox.children.addAll(detailsBox, featurePie, forestImportancesPane)
   }
 
@@ -95,8 +108,11 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     val titleLabel = new Label("Tree Viewer")
     val numTreesLabel = new Label(forestRun.getForestNumTrees + " trees")
     val maxDepthLabel = new Label("Max depth: " + forestRun.getForestMaxDepth)
-    val conditionLabel = new Label("Hover over a node to see its condition")
+    val conditionLabel = new Label("Hover over nodes to see conditions or predictions (left branch= TRUE, right branch= FALSE)")
     conditionLabel.setPrefHeight(bodyPane.getPrefHeight * 0.25)
+    conditionLabel.wrapText = true
+    conditionLabel.setContentDisplay(ContentDisplay.Top)
+    conditionLabel.alignmentInParent = Pos.TopLeft
 
     val gridPane = controller.genTreePane(0, conditionLabel) // default first tree
     gridPane.setPrefHeight(bodyPane.getPrefHeight * 0.65)
@@ -107,11 +123,11 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     val treeImpBox = new VBox {
       children = List(treeImpTitle, treeImportancesLabel)
     }
-    treeImpBox.setPrefWidth(bodyPane.getPrefWidth * 0.15)
+    treeImpBox.setPrefWidth(bodyPane.getPrefWidth * 0.2)
 
     val viewerBox = new VBox
     viewerBox.children = List(gridPane, conditionLabel)
-    viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.85)
+    viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.8)
     val numTrees = forestRun.getForestNumTrees
     val treeSelector = new ComboBox[Int] {
       promptText = "Select Tree..."
@@ -135,6 +151,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     headerBox.children.addAll(titleLabel, treeSelector, numTreesLabel, maxDepthLabel)
     headerBox.setPrefHeight(bodyPane.getPrefHeight * 0.1)
     headerPane.children.add(headerBox)
+    AnchorPane.setAnchors(headerBox, 0, headerPane.getPrefWidth * 0.05d, 0, headerPane.getPrefWidth * 0.05d)
     bodyBox.children.addAll(viewerBox, treeImpBox)
   }
 

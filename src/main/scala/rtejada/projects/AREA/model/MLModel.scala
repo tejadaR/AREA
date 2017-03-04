@@ -18,12 +18,14 @@ import org.apache.spark.ml.PipelineModel
 import org.apache.spark.sql.functions._
 import scala.collection.mutable.HashMap
 import org.apache.spark.sql.types.StructType
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /** Model implementation */
 class MLModel {
 
   val airportSeq = Seq("PHX", "ATL", "BWI", "DEN")
-  val treeSeq = Seq(60, 85, 115)
+  val treeSeq = Seq(40, 85, 115)
   val depthSeq = Seq(5, 6, 7)
   val modelMap = HashMap[String, Tuple2[PipelineModel, Array[Feature]]]()
 
@@ -58,10 +60,13 @@ class MLModel {
   def loadModel(modelName: String, view: OptionsView) = {
     val id = modelName.filterNot("model".toSet)
     if (modelMap.size > 0) modelMap.clear()
-    modelMap += (id -> (PipelineModel.load("trained/" + modelName), new ForestRun("output/features" + id + ".json",
+    val forestRun = new ForestRun("output/features" + id + ".json",
       "output/randomForest" + id + ".txt",
-      "output/runInfo" + id + ".json").featureExtracted.dropRight(1)))
-    modelMap.apply(id)._2
+      "output/runInfo" + id + ".json")
+    modelMap += (id -> (PipelineModel.load("trained/" + modelName), forestRun.featureExtracted.dropRight(1)))
+    (forestRun.getAirportCode,
+      forestRun.getAccuracy,
+      modelMap.apply(id)._2)
   }
 
   def getModels: Seq[String] = {
@@ -69,7 +74,7 @@ class MLModel {
     if (dir.exists && dir.isDirectory) dir.listFiles.filter(_.isDirectory).toSeq.map(_.getName) else Seq[File]().map(_.getName)
   }
 
-  def runModel(airport: String, treeNum: Int, depthNum: Int, view: OptionsView): String = {
+  def runModel(airport: String, treeNum: Int, depthNum: Int, featureList: List[String], view: OptionsView): String = {
     val startEpoch = Calendar.getInstance.getTimeInMillis
 
     val dataDF = Interface.getAirportData(airport, spark)
@@ -79,7 +84,7 @@ class MLModel {
       view.analysisBox.statusLabel.text = "Pre-processing data"
       view.analysisBox.runPb.progress = 0.1
     }
-    val preProcessor = new Preprocessor(dataDF, configDF, airportCode)
+    val preProcessor = new Preprocessor(dataDF, configDF, airportCode, featureList)
     val processedDF = preProcessor.finalDF.cache()
     Platform.runLater {
       view.analysisBox.statusLabel.text = "Generating features..."
@@ -109,7 +114,5 @@ class MLModel {
     Interface.outputJsonWithDate(runInfoMap, "runInfo" + forestHandler.runTimeId + ".json")
     f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${testCount} test records"
   }
-
- 
 
 }

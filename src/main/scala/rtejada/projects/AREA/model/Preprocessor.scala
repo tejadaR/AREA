@@ -19,7 +19,7 @@ import scala.BigDecimal
 import scala.reflect.runtime.universe
 
 /** Filters bad data, extracts features and ensures dataset is labaled */
-class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: String) extends Serializable {
+class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: String, featureList: List[String]) extends Serializable {
   //Transforming exit configuration DF to Array[Row]
   val exitConfig = inputConfig.collect()
 
@@ -38,20 +38,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
 
   val readyDF = findExit(fullFeaturesDF, exitConfig)
 
-  val finalDF = readyDF.select(
-    "runway",
-    "depAirport",
-    "aircraftType",
-    //"arrTerminal",
-    "arrGate",
-    "touchdownLat",
-    "touchdownLong",
-    "hour",
-    "day",
-    "decel",
-    "carrier",
-    //"traffic",
-    "exit")
+  val finalDF = readyDF.select("exit", featureList: _*)
 
   /** Remove irrelevant Columns, null values and departure records. */
   private def filterFlights(inputDF: DataFrame, airport: String): DataFrame = {
@@ -183,7 +170,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
     val hourCol = hourUDF.apply(inputDF.col("positions"))
     val withHourDF = inputDF.withColumn("hour", hourCol)
 
-    val dayUDF = udf(calcDayTime(_: String, "e"))
+    val dayUDF = udf(calcDayTime(_: String, "E"))
     val dayCol = dayUDF.apply(inputDF.col("positions"))
     val withDayDF = withHourDF.withColumn("day", dayCol)
 
@@ -238,8 +225,8 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
 
       val endingSpeed = (endingDistance / (endingDiffMilliseconds / 1000))
 
-      val speedDiff = (endingSpeed-initialSpeed)
-      val timeDiff = Math.abs(lastMilliseconds-secondMilliseconds) / 1000
+      val speedDiff = (endingSpeed - initialSpeed)
+      val timeDiff = Math.abs(lastMilliseconds - secondMilliseconds) / 1000
 
       BigDecimal(speedDiff / timeDiff).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
     }

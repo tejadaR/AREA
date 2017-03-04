@@ -10,6 +10,7 @@ import scalafx.collections.ObservableBuffer
 import scalafx.geometry.{ Pos, Insets }
 import scalafx.event.ActionEvent
 import scalafx.scene.image.{ Image, ImageView }
+import scalafx.scene.control.ScrollPane.ScrollBarPolicy
 
 /** View implementation */
 class OptionsView(controller: => OptionsController, stageWidth: Double, stageHeight: Double) {
@@ -19,14 +20,16 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
   tab.text = "AREA"
   viewBox.styleClass.add("container")
 
-  val analysisBox = genAnalysisBox(stageWidth * 0.65, stageHeight)
-  val resultsBox = genResultBox(stageWidth * 0.35, stageHeight)
+  val analysisBox = genAnalysisBox(stageWidth * 0.6, stageHeight)
+  val resultsBox = genResultBox(stageWidth * 0.4, stageHeight)
   analysisBox.styleClass.add("module")
   resultsBox.styleClass.add("module")
   viewBox.children.addAll(analysisBox, resultsBox)
 
   private def genAnalysisBox(w: Double, h: Double) = new VBox with TitledModuleV {
     val titleLabel = new Label("Airport Runway Exit Analysis")
+    this.prefWidth = w
+    this.prefHeight = h
 
     headerPane.children.add(titleLabel)
     headerPane.prefWidth = w
@@ -45,6 +48,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     airportSelector.getSelectionModel.selectFirst
     airportSelector.styleClass.add("selector")
     airportBox.children.addAll(airportLabel, airportSelector)
+    airportBox.spacing = (w * 0.05)
 
     val treeBox = new HBox
     val treeLabel = new Label("Number of Trees: ")
@@ -53,6 +57,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     treeSelector.getSelectionModel.selectFirst
     treeSelector.styleClass.add("selector")
     treeBox.children.addAll(treeLabel, treeSelector)
+    treeBox.spacing = (w * 0.05)
 
     val depthBox = new HBox
     val depthLabel = new Label("Max Tree Depth: ")
@@ -61,17 +66,68 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     depthSelector.getSelectionModel.selectFirst
     depthSelector.styleClass.add("selector")
     depthBox.children.addAll(depthLabel, depthSelector)
+    depthBox.spacing = (w * 0.05)
 
-    val areaPane = new AnchorPane
-    areaPane.prefWidth = w
-    areaPane.prefHeight = h * 0.3
-    val areaBox = new VBox
-    areaBox.spacing = h * 0.025
-    AnchorPane.setLeftAnchor(areaBox, areaPane.getPrefWidth * 0.05d)
+    val cbPane = new TilePane {
+      prefColumns = 2
+      tileAlignment = Pos.TopLeft
+      children = List(new CheckBox("Runway") {
+        id = "runway"
+        selected = true
+        disable = true
+      },
+        new CheckBox("Origin Airport") {
+          id = "depAirport"
+          selected = true
+        },
+        new CheckBox("Aircraft Type") {
+          id = "aircraftType"
+          selected = true
+        },
+        new CheckBox("Arrival Terminal") {
+          id = "arrGate"
+          selected = true
+        },
+        new CheckBox("Touchdown Latitude") {
+          id = "touchdownLat"
+          selected = true
+        },
+        new CheckBox("Touchdown Longitude") {
+          id = "touchdownLong"
+          selected = true
+        },
+        new CheckBox("Hour") {
+          id = "hour"
+          selected = true
+        },
+        new CheckBox("Day of Week") {
+          id = "day"
+          selected = true
+        },
+        new CheckBox("Deceleration(m/s\u00B2)") {
+          id = "decel"
+          selected = true
+        },
+        new CheckBox("Airline") {
+          id = "carrier"
+          selected = true
+        },
+        new CheckBox("Traffic") {
+          id = "traffic"
+          selected = true
+        })
+      hgap = w * 0.01
+      vgap = h * 0.01
+    }
+    val cbAnchor = new AnchorPane
+    cbAnchor.children.add(cbPane)
+    AnchorPane.setAnchors(cbPane, bodyPane.getPrefHeight * 0.01, bodyPane.getPrefHeight * 0.01,
+      bodyPane.getPrefHeight * 0.01, bodyPane.getPrefHeight * 0.01)
+    cbAnchor.styleClass.add("subModule")    
 
     val runButton = new Button("Run") {
       onAction = (ae: ActionEvent) => {
-        controller.onRun(airportSelector.value.apply,
+        controller.onRun(cbPane, airportSelector.value.apply,
           treeSelector.value.apply, depthSelector.value.apply)
       }
     }
@@ -81,11 +137,37 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
       visible = false
     }
     val statusPane = new AnchorPane
+    val statusBox = new HBox
+    statusBox.spacing = (w * 0.05)
     val statusLabel = new Label("Standing by")
-    statusPane.children.add(statusLabel)
+    statusLabel.styleClass.add("statusLabel")
+    val refreshButton = new Button {
+      graphic = new ImageView {
+        image = new Image(this.getClass.getResourceAsStream("/img/sync.png"), h * 0.02, h * 0.02, true, true)
+      }
+      onAction = (ae: ActionEvent) => {
+        controller.onRefresh
+      }
+    }
+    statusBox.children.addAll(statusLabel, refreshButton)
+    statusPane.children.add(statusBox)
 
-    areaBox.children.addAll(airportBox, treeBox, depthBox, runButton, statusPane, runPb)
+    val areaPane = new AnchorPane
+    areaPane.prefWidth = w
+    areaPane.prefHeight = h * 0.3
+    val paramBox = new VBox
+    paramBox.spacing = h * 0.025
+    paramBox.children.addAll(airportBox, treeBox, depthBox)
+
+    val controlBox = new HBox
+    controlBox.spacing = w * 0.025
+    controlBox.children.addAll(paramBox, cbAnchor)
+    val areaBox = new VBox
+    areaBox.spacing = h * 0.025
+    areaBox.children.addAll(controlBox, runButton, statusPane, runPb)
     areaPane.children.add(areaBox)
+
+    AnchorPane.setLeftAnchor(areaBox, areaPane.getPrefWidth * 0.025d)
 
     val singleTestModule = genSingleTestModule(w, h * 0.35)
 
@@ -94,40 +176,48 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
 
   private def genSingleTestModule(w: Double, h: Double) = new VBox with TitledModuleV {
     val titleLabel = new Label("Model Test Module")
+    this.prefWidth = w
+    this.prefHeight = h
 
     headerPane.children.add(titleLabel)
     headerPane.prefWidth = w
     headerPane.minHeight = h * 0.1
     headerPane.styleClass.add("title")
+    bodyPane.prefWidth = w
+    bodyPane.prefHeight = h * 0.9
 
     AnchorPane.setAnchors(titleLabel, 0, headerPane.getPrefWidth * 0.05d, 0, headerPane.getPrefWidth * 0.05d)
+    AnchorPane.setTopAnchor(bodyBox, bodyPane.getPrefHeight * 0.05d)
+    AnchorPane.setLeftAnchor(bodyBox, bodyPane.getPrefWidth * 0.025d)
 
     val loadPane = new AnchorPane
     val loadBox = new HBox
     val selectBox = new HBox
     val selectLabel = new Label("Select Model: ")
+    val statusLabel = new Label("Module Status")
+    statusLabel.styleClass.add("statusLabel")
     val modelSelector = new ChoiceBox[String]
     modelSelector.items = ObservableBuffer(controller.model.getModels)
     modelSelector.styleClass.add("selector")
+    modelSelector.prefWidth = w * 0.2
     selectBox.children.addAll(selectLabel, modelSelector)
-    val refreshButton = new Button {
-      graphic = new ImageView {
-        image = new Image(this.getClass.getResourceAsStream("/img/sync.png"), h * 0.08, h * 0.08, true, true)
-      }
-      onAction = (ae: ActionEvent) => {
-        modelSelector.items = ObservableBuffer(controller.model.getModels)
-      }
-    }
     val loadButton = new Button("Load") {
       onAction = (ae: ActionEvent) => {
-        controller.onLoad(modelSelector.value.apply)
+        if (modelSelector.value.isNotNull.apply)
+          controller.onLoad(modelSelector.value.apply)
+        else
+          statusLabel.text = "No model selected, unable to load."
       }
     }
-    val statusLabel = new Label("LoadStatusLabel")
-    loadBox.children.addAll(selectBox, refreshButton, loadButton, statusLabel)
+    loadBox.children.addAll(selectBox, loadButton, statusLabel)
+    loadBox.spacing = bodyPane.getPrefWidth * 0.1
     loadPane.children.add(loadBox)
 
-    val paramPane = new TilePane
+    val paramPane = new TilePane { tileAlignment = Pos.TopLeft }
+    paramPane.hgap = bodyPane.getPrefWidth * 0.05
+    paramPane.vgap = bodyPane.getPrefHeight * 0.05
+    paramPane.styleClass.add("subModule")
+    paramPane.visible = false
 
     val testPane = new AnchorPane
     val testBox = new HBox
@@ -144,13 +234,13 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     bodyBox.children.addAll(loadPane, paramPane, testPane)
     bodyBox.prefWidth = w
     bodyBox.prefHeight = h * 0.9
-
-    this.prefWidth = w
-    this.prefHeight = h
+    bodyBox.spacing = h * 0.06
   }
 
   private def genResultBox(w: Double, h: Double) = new VBox with TitledModuleV {
-    val titleLabel = new Label("RESULTS")
+    val titleLabel = new Label("Results")
+    this.prefWidth = w
+    this.prefHeight = h
 
     headerPane.children.add(titleLabel)
     headerPane.prefWidth = w
@@ -163,21 +253,32 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     AnchorPane.setLeftAnchor(bodyBox, bodyPane.getPrefWidth * 0.05d)
     AnchorPane.setTopAnchor(bodyBox, bodyPane.getPrefHeight * 0.05d)
 
-    val resultsPane = new TilePane
-    resultsPane.children = controller.onRefreshResults
-    val controlBox = new HBox
-    val refreshButton = new Button {
-      graphic = new ImageView {
-        image = new Image(this.getClass.getResourceAsStream("/img/sync.png"), h * 0.03, h * 0.03, true, true)
-      }
+    val clearButton = new Button("Clear All") {
       onAction = (ae: ActionEvent) => {
-        resultsPane.children = controller.onRefreshResults
+        controller.onClearAll
       }
     }
-    controlBox.children.addAll(refreshButton)
 
-    bodyBox.children.addAll(controlBox, resultsPane)
-    bodyBox.prefWidth = w
+    val resultsPane = new TilePane
+    resultsPane.prefColumns = 3
+    resultsPane.hgap = w * 0.01
+    resultsPane.vgap = h * 0.01
+    resultsPane.setPrefWidth(bodyPane.getPrefWidth * 0.8)
+    resultsPane.children = controller.getButtonSeq
+    val scPane = new ScrollPane
+    scPane.content = resultsPane
+    scPane.setHbarPolicy(ScrollBarPolicy.Never)
+    scPane.setVbarPolicy(ScrollBarPolicy.Always)
+    scPane.setMaxWidth(bodyPane.getPrefWidth * 0.8)
+    scPane.setPrefHeight(bodyPane.getPrefHeight * 0.7)
+    scPane.setMaxHeight(bodyPane.getPrefHeight * 0.8)
+
+    val resultsBox = new VBox {
+      children = List(clearButton, scPane)
+    }
+
+    bodyBox.children.add(resultsBox)
+    bodyBox.prefWidth = w * 0.9
     bodyBox.prefHeight = h * 0.95
   }
 

@@ -124,7 +124,7 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
       radius = (when(hover) choose (nodeRadius * 1.5) otherwise nodeRadius).toDouble
       fill = if (node.getDepth == 0) Color.Gold
       else if (node.getChildren.isEmpty) Color.DarkBlue
-      else Color.MediumTurquoise
+      else Color.LightSeaGreen
     }
     val enterEvent: (MouseEvent) => MouseEvent = { event: MouseEvent =>
       {
@@ -137,8 +137,8 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
       {
         shape.fill = if (node.getDepth == 0) Color.Gold
         else if (node.getChildren.isEmpty) Color.DarkBlue
-        else Color.MediumTurquoise
-        conditionLabel.text = " "
+        else Color.LightSeaGreen
+        conditionLabel.text = "Hover over nodes to see conditions or predictions (left branch= TRUE, right branch= FALSE)"
         event
       }
     }
@@ -152,15 +152,15 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
     if (node.getChild(true) == None) "Predict Exit " + forestRun.getExitLabel(node.getPrediction)
     else {
       val rawCondition = node.getCondition
-      val featName = forestRun.getFeatureName(node.getFeatureIndex)
+      val featName = formatFeature(forestRun.getFeatureName(node.getFeatureIndex))
       val featCatArr = forestRun.getFeatureCategories(node.getFeatureIndex)
       featCatArr match {
-        case None => featName + " " + rawCondition
-        case Some(featureCategories) => featName + " is in (" + {
+        case None => "Is " + featName + rawCondition + "?"
+        case Some(featureCategories) => "Is " + featName + " in (" + {
           val start = rawCondition.indexOf("{") + 1
           val end = rawCondition.indexOf("}")
           val rawCatArr = rawCondition.substring(start, end).split(",").map(_.toDouble.toInt)
-          rawCatArr.map(featureCategories(_)).mkString(", ") + ")"
+          rawCatArr.map(featureCategories(_)).mkString(", ") + ")" + "?"
         }
       }
     }
@@ -171,12 +171,27 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
     val treeImportances = forestRun.treeImportancesList
 
     val importancesText = (for (i <- 0 until numFeatures) yield {
-      val featureName = forestRun.getFeatureName(i)
+      val featureName = formatFeature(forestRun.getFeatureName(i))
       val roundedImportance = "%.2f".format(treeImportances(treeIndex)(i) * 100).toDouble
       "\t" + featureName + ": " + roundedImportance + " %" + System.lineSeparator()
     }).mkString
 
     new Label(importancesText)
+  }
+
+  def formatFeature(in: String): String = in match {
+    case "runway"        => "Runway"
+    case "depAirport"    => "Origin Airport"
+    case "aircraftType"  => "Aircraft Type"
+    case "arrTerminal"   => "Arrival Terminal"
+    case "arrGate"       => "Arrival Gate"
+    case "touchdownLat"  => "Touchdown Latitude"
+    case "touchdownLong" => "Touchdown Longitude"
+    case "hour"          => "Hour"
+    case "day"           => "Day of Week"
+    case "decel"         => "Deceleration(m/s\u00B2)"
+    case "carrier"       => "Airline"
+    case "traffic"       => "Traffic"
   }
 
 }
