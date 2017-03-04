@@ -1,26 +1,46 @@
 # Airport Runway Exit Analysis (AREA)
 
-AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims to predict an arriving aircraft's runway exit choice. It is able to use thousands of flight records to train a Random Forest Classification Model. The model then makes predictions on a testing dataset.
+*AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims to predict an arriving aircraft's runway exit choice. It is able to use thousands of flight records to train a Random Forest Classification Model. The model then makes predictions on a testing dataset.*
 
-*Functionality*:
- - **NEW GUI**: Train/tests models, predicts on single record, views results.
+# Functionality
+
+ - **Model Training**: Create models by selecting the # of trees and the maximum tree depth.
+![Run](docs/images/area_run.png)
+- **Airport Flexibility**: Train and test models using data from the currently supported international airports:
+   - Phoenix Sky Harbor(PHX)
+   - Hartsfield–Jackson Atlanta(ATL)
+   - Denver(DEN)
+   - Baltimore–Washington(BWI)
+ - **Single Landing Testing**: Use trained models to test an exit prediction, by providing paramters
+![Load](docs/images/area_load.png)
+ - **Results Viewer**: View model details, feature importances, and the structure of each tree in the random foreset.
+![View](docs/images/area_view.png)
+
+## Developers
+
+AREA uses a derivation of the model–view–controller (MVC) architectural pattern called **Model-View-Presenter(Supervising Controller)**. The implementation is based on the theory explained here: https://martinfowler.com/eaaDev/SupervisingPresenter.html 
+
+*Behind the scenes functionality:*
  - **Pre-processing**: Filters out null data and discards irrelevant columns.
  - **Feature engineering**: Extracts relevant features based on given data (Eg: landing speed from array of positions and epoch times).
- - **Model hyper-parameter tuning using grid-search**: accuracy of each subset measured using cross-validation.
- - **Airport Flexibility**: User is able to input an airport to analyze. It is able to be configured for any runway configuration.
+ - **Optional hyper-parameter tuning using grid-search**: accuracy of each subset measured using cross-validation.
  - **Output**: run information (feature importances, airport info, random forest info) is written to 3 files with a run ID number.
 
+AREA handles pre-processing, testing and training tasks asynchronously by using Scala [Futures](http://docs.scala-lang.org/overviews/core/futures.html), **allowing users to concurrently train, load and view different models.**
+
+
+*Deployment Instructions*:
 Scala, JDK, and sbt are required. To deploy the GUI with all dependencies included, use:
 
- - sbt assembly
+> sbt assembly
 
 in the project's root folder. Then run with:
 
- - java -jar /path/AREA-assembly-2.X.jar
+> java -jar /path/AREA-assembly-2.X.jar
 
 If running in Windows, download hadoop's winutils.exe and save as: C:\winutil\bin\winutils.exe
 
-## Development Instructions
+*Developer Instructions*:
 Required:
 
 1. Latest version of Java SE Development Kit (JDK)
@@ -32,18 +52,13 @@ Configure your environment for ease of access.
 
 Scala-IDE for Eclipse is recommended (together with the sbteclipse plugin). Developers can just use:
 
-- sbt compile
-- sbt eclipse
+> sbt compile
 
-and then easily import and run the project in Scala-IDE. 
+> sbt eclipse
 
+and then simply import and run the project in Scala-IDE.
 
-## Usage and Help
-Currently supports the following airports:
- - Phoenix(PHX)
- - Atlanta(ATL)
- - Baltimore(BWI)
- - Denver(DEN)
+## Other Information
 
 #### About Spark
 
@@ -53,6 +68,7 @@ Currently supports the following airports:
 
 #### About Scala
 
+ - [Scala?] (https://www.scala-lang.org/)
  - [Scala Exercises](https://www.scala-exercises.org/std_lib/asserts)
 
 #### About Git
@@ -70,3 +86,4 @@ Find the section that says: "Something More Simple". There are no need for bugfi
 3. Commit your changes: `git commit -am 'Add some feature'`
 4. Push to the branch: `git push origin my-new-feature`
 5. Submit a pull request :D
+
