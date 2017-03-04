@@ -5,15 +5,21 @@
 # Functionality
 
  - **Model Training**: Create models by selecting the # of trees and the maximum tree depth.
+ 
 ![Run](docs/images/area_run.png)
-- **Airport Flexibility**: Train and test models using data from the currently supported international airports:
+- - - -
+ - **Airport Flexibility**: Train and test models using data from the currently supported international airports:
    - Phoenix Sky Harbor(PHX)
    - Hartsfield–Jackson Atlanta(ATL)
    - Denver(DEN)
    - Baltimore–Washington(BWI)
- - **Single Landing Testing**: Use trained models to test an exit prediction, by providing paramters
+- - - -
+ - **Single Landing Testing**: Use trained models to test an exit prediction, by providing landing parameters
+ 
 ![Load](docs/images/area_load.png)
+- - - -
  - **Results Viewer**: View model details, feature importances, and the structure of each tree in the random foreset.
+ 
 ![View](docs/images/area_view.png)
 
 ## Developers
@@ -36,12 +42,11 @@ Scala, JDK, and sbt are required. To deploy the GUI with all dependencies includ
 
 in the project's root folder. Then run with:
 
-> java -jar /path/AREA-assembly-2.X.jar
+> java -jar /path/AREA_2.X.jar
 
 If running in Windows, download hadoop's winutils.exe and save as: C:\winutil\bin\winutils.exe
 
-*Developer Instructions*:
-Required:
+*Developer Requirements*:
 
 1. Latest version of Java SE Development Kit (JDK)
 2. Latest version of Scala
@@ -50,7 +55,7 @@ Required:
 
 Configure your environment for ease of access.
 
-Scala-IDE for Eclipse is recommended (together with the sbteclipse plugin). Developers can just use:
+Scala-IDE for Eclipse is recommended (together with the sbteclipse plugin). Developers can use:
 
 > sbt compile
 
@@ -58,7 +63,7 @@ Scala-IDE for Eclipse is recommended (together with the sbteclipse plugin). Deve
 
 and then simply import and run the project in Scala-IDE.
 
-## Other Information
+## Other Resources
 
 #### About Spark
 
@@ -66,10 +71,7 @@ and then simply import and run the project in Scala-IDE.
  - [Quick Start](http://spark.apache.org/docs/latest/quick-start.html)
  - [Standalone Mode](http://spark.apache.org/docs/latest/spark-standalone.html)
 
-#### About Scala
-
- - [Scala?] (https://www.scala-lang.org/)
- - [Scala Exercises](https://www.scala-exercises.org/std_lib/asserts)
+#### About [Scala](https://www.scala-lang.org/)
 
 #### About Git
 * [Git Download](https://git-scm.com/downloads)
