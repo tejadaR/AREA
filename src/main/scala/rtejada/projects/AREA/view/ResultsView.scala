@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.view
 
 import scalafx.Includes._
@@ -25,7 +28,8 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
   val infoBox = genInfoBox(stageWidth, stageHeight * 0.65)
   val forestBox = genViewerBox(stageWidth, stageHeight * 0.35)
   viewBox.children.addAll(infoBox, forestBox)
-
+  
+  /** Generates information summary module*/
   private def genInfoBox(w: Double, h: Double) = new VBox with TitledModuleH {
     val airportTitle = new Label(forestRun.getAirportCode + " AIRPORT")
     val runwaysTitle = new Label("# Runway configurations: " + forestRun.getNumRunways)
@@ -97,6 +101,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     bodyBox.children.addAll(detailsBox, featurePie, forestImportancesPane)
   }
 
+  /** Generates tree-viewer module*/
   private def genViewerBox(w: Double, h: Double) = new VBox with TitledModuleH {
 
     headerPane.prefWidth = w

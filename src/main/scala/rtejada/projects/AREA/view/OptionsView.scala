@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.view
 
 import scalafx.Includes._
@@ -26,6 +29,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
   resultsBox.styleClass.add("module")
   viewBox.children.addAll(analysisBox, resultsBox)
 
+  /** Generates main analysis module*/
   private def genAnalysisBox(w: Double, h: Double) = new VBox with TitledModuleV {
     val titleLabel = new Label("Airport Runway Exit Analysis")
     this.prefWidth = w
@@ -163,6 +167,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     bodyBox.children.addAll(areaPane, singleTestModule)
   }
 
+  /** Generates single-test module*/
   private def genSingleTestModule(w: Double, h: Double) = new VBox with TitledModuleV {
     val titleLabel = new Label("Model Test Module")
     this.prefWidth = w
@@ -222,7 +227,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
       disable = true
       onAction = (ae: ActionEvent) => {
         val airportCode = controller.model.modelMap.head._2._2.getAirportCode
-        controller.onMapSelected(airportCode)
+        controller.onOpenDiagram(airportCode)
       }
     }
 
@@ -239,6 +244,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     bodyBox.spacing = h * 0.06
   }
 
+  /** Generates results-chooser module*/
   private def genResultBox(w: Double, h: Double) = new VBox with TitledModuleV {
     val titleLabel = new Label("Results")
     this.prefWidth = w
@@ -266,7 +272,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     resultsPane.hgap = w * 0.01
     resultsPane.vgap = h * 0.01
     resultsPane.setPrefWidth(bodyPane.getPrefWidth * 0.8)
-    resultsPane.children = controller.getButtonSeq
+    resultsPane.children = controller.genButtonSeq
     val scPane = new ScrollPane
     scPane.content = resultsPane
     scPane.setHbarPolicy(ScrollBarPolicy.NEVER)

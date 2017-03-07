@@ -1,11 +1,5 @@
-/*
- * Copyright (c) 2016 Roman Tejada. All rights reserved. 
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential
- * 
- * Contributors:
- * 	Roman Tejada - initial API and implementation
- */
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
 
 package rtejada.projects.AREA.utils
 
@@ -43,10 +37,11 @@ object Interface {
     pw.close()
   }
 
+  /** Saves model to a local folder*/
   def saveModel(model: PipelineModel, modelID: Long) = {
     val file = new File("trained")
     if (!file.exists) file.mkdir
-    model.save("trained/model"+modelID)
+    model.save("trained/model" + modelID)
   }
 
   /** Outputs JSON with a datetime value to given fileName. */
@@ -92,6 +87,7 @@ object Interface {
     (process, timeStr)
   }
 
+  /** Loading method for reading data csv files into spark */
   def getAirportData(airport: String, spark: SparkSession): DataFrame = airport match {
     case ic"PHX" | ic"PHOENIX"   => spark.read.option("header", false).csv("data/runwayFlights_PHX_*.csv")
     case ic"ATL" | ic"ATLANTA"   => spark.read.option("header", false).csv("data/runwayFlights_ATL_*.csv")
@@ -99,13 +95,15 @@ object Interface {
     case ic"DEN" | ic"DENVER"    => spark.read.option("header", false).csv("data/runwayFlights_DEN_*.csv")
   }
 
+  /** Loading method for reading config csv files into spark */
   def getExitConfig(airport: String, spark: SparkSession): DataFrame = airport match {
     case ic"PHX" | ic"PHOENIX"   => spark.read.option("header", true).csv("data/exit_config_PHX.csv")
     case ic"ATL" | ic"ATLANTA"   => spark.read.option("header", true).csv("data/exit_config_ATL.csv")
     case ic"BWI" | ic"BALTIMORE" => spark.read.option("header", true).csv("data/exit_config_BWI.csv")
     case ic"DEN" | ic"DENVER"    => spark.read.option("header", true).csv("data/exit_config_DEN.csv")
   }
-
+  
+  /** Formats airport code*/
   def getAirportCode(airport: String, spark: SparkSession): String = airport match {
     case ic"PHX" | ic"PHOENIX"   => "KPHX"
     case ic"ATL" | ic"ATLANTA"   => "KATL"

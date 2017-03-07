@@ -1,11 +1,5 @@
-/*
- * Copyright (c) 2016 Roman Tejada. All rights reserved. 
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential
- * 
- * Contributors:
- * 	Roman Tejada - initial API and implementation
- */
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
 
 package rtejada.projects.AREA.utils
 
@@ -15,20 +9,14 @@ import scala.collection.mutable.ArrayBuffer
 import java.io.PrintWriter
 import java.io.File
 
-/**
- * This class writes the Random Forest's feature information to a JSON file
- *
- * @author rtejada
- */
+/*** Writes the Random Forest's feature information to a JSON file*/
 class FeatureWriter(catFeatNames: Array[String], contFeatNames: Array[String], indexedFeatures: Array[PipelineStage], labelIndexer: StringIndexerModel) {
 
   val catFeatures = formFeatures(catFeatNames, indexedFeatures, true)
   val contFeatures = formFeatures(contFeatNames, indexedFeatures, false)
   val featureOutput = formJson(catFeatures ++ contFeatures)
 
-  /**
-   * Generates a JSON string from the given array of Features
-   */
+  /** Generates a JSON string from the given array of Features*/
   private def formJson(featureArray: Array[Feature]): String = {
 
     def assemble(inFeature: Feature): String = {
@@ -46,10 +34,7 @@ class FeatureWriter(catFeatNames: Array[String], contFeatNames: Array[String], i
       "\"categories\":[\"" + labelIndexer.labels.mkString("\",\"") + "\"]}]"
   }
 
-  /**
-   * Forms feature information into a Feature
-   * class, and places the latter in an Array
-   */
+  /** Forms feature information into a Feature class, and places the latter in an Array */
   private def formFeatures(names: Array[String], indexedFeats: Array[PipelineStage], categorical: Boolean): Array[Feature] = {
     val features = names.zipWithIndex.map {
       case (feat, i) =>
@@ -64,7 +49,5 @@ class FeatureWriter(catFeatNames: Array[String], contFeatNames: Array[String], i
   }
 }
 
-/**
- * Represents a single feature and its information
- */
+/** Represents a single feature and its information*/
 case class Feature(featureName: String, featureType: String, categories: Option[Array[String]])

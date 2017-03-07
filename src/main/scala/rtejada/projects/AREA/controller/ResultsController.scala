@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.controller
 
 import rtejada.projects.AREA.model.MLModel
@@ -14,15 +17,12 @@ import scalafx.scene.paint.Color
 import scalafx.scene.input.MouseEvent
 import scalafx.event.ActionEvent
 import scalafx.scene.Node
-import rtejada.projects.AREA.model.ForestRun
-import rtejada.projects.AREA.model.TreeNode
+import rtejada.projects.AREA.model.{ ForestRun, TreeNode }
 import scalafx.geometry.Pos
 import javafx.scene.control.ScrollPane.ScrollBarPolicy
-import javafx.animation.Timeline
-import javafx.animation.KeyFrame
+import javafx.animation.{ Timeline, KeyFrame }
 import javafx.util.Duration
-import javafx.scene.control.Tooltip
-import javafx.scene.control.OverrunStyle
+import javafx.scene.control.{ Tooltip, OverrunStyle }
 
 class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Double, stageH: Double) {
   val model = mlModel
@@ -34,13 +34,14 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Doubl
     minutes + "m " + extraSeconds + "s"
   }
 
+  /** Generates a tree pane and its importances label for the view to show */
   def onSelectTree(tree: Int): (ScrollPane, Label) = {
     val newPane = genTreePane(tree)
     val newImportancesLabel = genTreeImportancesLabel(tree)
     (newPane, newImportancesLabel)
   }
 
-  /** Generates tree grid */
+  /** Generates tree grid, made visible to view so that default tree is loaded*/
   def genTreePane(treeIndex: Int): ScrollPane = {
 
     def getCellsX(depth: Int) = (Math.pow(2, depth) + 1).toInt
@@ -174,6 +175,7 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Doubl
     }
   }
 
+  /**Generates importances label for a tree */
   def genTreeImportancesLabel(treeIndex: Int): Label = {
     val numFeatures = forestRun.forestImportances.length
     val treeImportances = forestRun.treeImportancesList
@@ -187,7 +189,8 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Doubl
     new Label(importancesText)
   }
 
-  def adjustTooltipDelay(tooltip: javafx.scene.control.Tooltip) = {
+  /** Decreases the activation delay of the given tooltip */
+  private def adjustTooltipDelay(tooltip: javafx.scene.control.Tooltip) = {
     val fieldBehavior = tooltip.getClass.getDeclaredField("BEHAVIOR")
     fieldBehavior.setAccessible(true)
     val objectBehavior = fieldBehavior.get(tooltip)
@@ -200,6 +203,7 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Doubl
     objTimer.getKeyFrames.add(new KeyFrame(new Duration(0)))
   }
 
+  /** Formats features for ease of use*/
   def formatFeature(in: String): String = in match {
     case "runway"        => "Runway"
     case "depAirport"    => "Origin Airport"

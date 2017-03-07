@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.controller
 
 import scalafx.Includes._
@@ -30,22 +33,24 @@ import org.apache.commons.io.FileUtils
 import scalafx.stage.Stage
 import scalafx.scene.Scene
 import scalafx.scene.input.MouseEvent
-import javafx.animation.Timeline
-import javafx.animation.KeyFrame
+import javafx.animation.{ Timeline, KeyFrame }
 import javafx.util.Duration
 
 /** Controller implementation */
 class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Double, stageH: Double) {
   val model = mlModel
 
-  def onMapSelected(airportCode: String): Unit = {
+  /**
+   * Creates a new stage with the corresponding airport diagram, providing
+   *  functionality to fill out coordinate fields  by clicking on the map
+   */
+  def onOpenDiagram(airportCode: String): Unit = {
     val lcCode = airportCode match {
       case "KPHX" => "phx"
       case "KATL" => "atl"
       case "KDEN" => "den"
       case "KBWI" => "bwi"
     }
-
     val airportConfig = airportCode match {
       case "KPHX" => ("phx", (-112.030832, 33.442311), (-111.990, 33.426286))
       case "KATL" => ("atl", (-84.4491665, 33.651087), (-84.4041575, 33.61992152))
@@ -54,11 +59,9 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     }
     val startPoint = airportConfig._2
     val endPoint = airportConfig._3
-
     val scPane = new ScrollPane
     scPane.prefWidth = stageW * 0.8
     scPane.prefHeight = stageH * 0.8
-
     val airportImg = new ImageView {
       image = new Image(this.getClass.getResourceAsStream("/img/" + lcCode + "_img.png"), stageW * 0.8, stageH * 0.8, true, true)
     }
@@ -71,8 +74,8 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       {
         val xRatio = event.x / airportImg.getImage.getWidth
         val yRatio = event.y / airportImg.getImage.getHeight
-        val long = BigDecimal(startPoint._1 + ((endPoint._1 - startPoint._1) * xRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
-        val lat = BigDecimal(startPoint._2 + ((endPoint._2 - startPoint._2) * yRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
+        val long = BigDecimal(startPoint._1 + ((endPoint._1 - startPoint._1) * xRatio)).setScale(5, BigDecimal.RoundingMode.HALF_UP)
+        val lat = BigDecimal(startPoint._2 + ((endPoint._2 - startPoint._2) * yRatio)).setScale(5, BigDecimal.RoundingMode.HALF_UP)
         coordsTip.text = "(" + long + ", " + lat + ")"
         coordsTip.show(airportImg, event.x, event.y)
         event
@@ -82,8 +85,8 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       {
         val xRatio = event.x / airportImg.getImage.getWidth
         val yRatio = event.y / airportImg.getImage.getHeight
-        val long = BigDecimal(startPoint._1 + ((endPoint._1 - startPoint._1) * xRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
-        val lat = BigDecimal(startPoint._2 + ((endPoint._2 - startPoint._2) * yRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
+        val long = BigDecimal(startPoint._1 + ((endPoint._1 - startPoint._1) * xRatio)).setScale(5, BigDecimal.RoundingMode.HALF_UP)
+        val lat = BigDecimal(startPoint._2 + ((endPoint._2 - startPoint._2) * yRatio)).setScale(5, BigDecimal.RoundingMode.HALF_UP)
         val longField = view.analysisBox.singleTestModule.paramPane.children.toArray.
           map(_.asInstanceOf[javafx.scene.layout.HBox]).
           filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
@@ -94,7 +97,6 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
           filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
           map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.TextField]).
           find(node => node.getId == "touchdownLatselector")
-
         longField match {
           case Some(field) => field.text = long.toString
           case None        =>
@@ -103,20 +105,18 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
           case Some(field) => field.text = lat.toString
           case None        =>
         }
-
         imgStage.close()
         event
       }
     }
-
     airportImg.setOnMouseMoved(moveEvent)
     airportImg.setOnMouseClicked(clickEvent)
     imgStage.scene = imgScene
     imgStage.onCloseRequest = handle { imgStage.close() }
     imgStage.showAndWait
-
   }
 
+  /** Clears a single run from all view controls, deleting all associated files*/
   def onClearRun(id: String) {
     val runFuture = Future {
       def deletDir(file: File): Unit = {
@@ -144,6 +144,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     }
   }
 
+  /** Clears every run from all view controls, deleting all associated files*/
   def onClearAll {
     val runFuture = Future {
       def deletDir(file: File): Unit = {
@@ -168,13 +169,15 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     }
   }
 
+  /** Refreshes runs in file to appear in results and in the single-test-module*/
   def onRefresh: Unit = {
-    val buttons = getButtonSeq
+    val buttons = genButtonSeq
     view.analysisBox.singleTestModule.modelSelector.items = ObservableBuffer(model.getModels)
     view.resultsBox.resultsPane.children = buttons
   }
 
-  def getButtonSeq: Seq[AnchorPane] = {
+  /** Generates viewing buttons for each model in file*/
+  def genButtonSeq: Seq[AnchorPane] = {
     val dir = new File("output")
     val fileSeq = if (dir.exists && dir.isDirectory) dir.listFiles.filter(_.isFile).toSeq else Seq[File]()
     val filteredSeq = fileSeq.filter { file =>
@@ -231,6 +234,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     }
   }
 
+  /** Gathers the selected parameters and defers testing to MLModel*/
   def onTest(paramGrid: TilePane) {
     if (!model.modelMap.isEmpty) {
       view.analysisBox.singleTestModule.testLabel.text = "Predicting..."
@@ -275,6 +279,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     } else println("model not loaded")
   }
 
+  /** Loads the selected model and provides controllers for testing single records */
   def onLoad(modelName: String): Unit = {
     view.analysisBox.singleTestModule.statusLabel.text = "Loading model..."
     view.analysisBox.singleTestModule.paramPane.visible = false
@@ -338,6 +343,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     }
   }
 
+  /** Starts a new thread and runs a new model with the selected paramteres */
   def onRun(cbTilePane: TilePane, airport: String, treeNum: Int, depthNum: Int): Unit = {
     val cbList = cbTilePane.children.toList.
       map(node => node.asInstanceOf[javafx.scene.control.CheckBox]).
@@ -373,6 +379,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     }
   }
 
+  /** Formats features for ease of use*/
   private def formatFeature(in: String): String = in match {
     case "runway"        => "Runway"
     case "depAirport"    => "Origin Airport"
@@ -388,7 +395,8 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     case "traffic"       => "Traffic"
   }
 
-  def adjustTooltipDelay(tooltip: javafx.scene.control.Tooltip) = {
+  /** Decreases the activation delay of the given tooltip */
+  private def adjustTooltipDelay(tooltip: javafx.scene.control.Tooltip) = {
     val fieldBehavior = tooltip.getClass.getDeclaredField("BEHAVIOR")
     fieldBehavior.setAccessible(true)
     val objectBehavior = fieldBehavior.get(tooltip)

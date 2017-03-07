@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.model
 
 import scala.io.Source

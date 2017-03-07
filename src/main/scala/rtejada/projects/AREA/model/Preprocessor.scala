@@ -1,11 +1,5 @@
-/*
- * Copyright (c) 2016 Roman Tejada. All rights reserved. 
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential
- * 
- * Contributors:
- * 	Roman Tejada - initial API and implementation
- */
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
 
 package rtejada.projects.AREA.model
 
@@ -80,10 +74,22 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
    */
   private def findExit(inputDF: DataFrame, exitCfg: Array[Row]): DataFrame = {
 
+    def getAngle(long1: Double, lat1: Double, long2: Double, lat2: Double) = {
+      val longDiff = Math.abs(Math.abs(long1) - Math.abs(long2))
+      val latDiff = Math.abs(lat1 - lat2)
+      if (longDiff > 0 || latDiff > 0) Math.toDegrees(Math.atan(latDiff / longDiff)) else -999
+    }
+
     def calcExit(positions: String) = {
       val touchDownLat = Math.abs(positions.split("\\|")(0).split(";")(0).toDouble)
       val touchDownLong = Math.abs(positions.split("\\|")(0).split(";")(1).toDouble)
-      val threshold = 0.00096 //meters
+      val nextIndex = if (positions.split("\\|").length > 3) 3 else positions.split("\\|").length - 1
+      val nextLat = Math.abs(positions.split("\\|")(nextIndex).split(";")(0).toDouble)
+      val nextLong = Math.abs(positions.split("\\|")(nextIndex).split(";")(1).toDouble)
+
+      val runwayAngle = getAngle(touchDownLong, touchDownLat, nextLong, nextLat)
+
+      val angleThreshold = 4 //degrees(angle)
       val ifExit = (exitCfg: Array[Row], inStr: String) => {
         val thresholdLat = 0.00016
         val latInput = Math.abs(inStr.split(";")(0).toDouble)
@@ -96,9 +102,8 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
           val latCondition = Math.abs(latInput - thisLat) < thresholdLat
           val longCondition = Math.abs(longInput) < Math.abs(thisLongUpper) &&
             Math.abs(longInput) > Math.abs(thisLongLower)
-          val closeLatCondition = Math.abs(latInput - touchDownLat) < threshold
-          val closeLongCondition = Math.abs(Math.abs(longInput) - Math.abs(touchDownLong)) < threshold
-          val farExitCondition = closeLatCondition || closeLongCondition
+          val thisAngle = getAngle(touchDownLong, touchDownLat, longInput, latInput)
+          val farExitCondition = Math.abs(runwayAngle - thisAngle) < angleThreshold
           if (latCondition && longCondition && farExitCondition) true else false
         }
         exitCfg.find(isExit(_)) match {

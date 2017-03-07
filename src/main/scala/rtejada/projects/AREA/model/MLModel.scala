@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.model
 
 import org.apache.log4j.PropertyConfigurator
@@ -43,6 +46,7 @@ class MLModel {
     .getOrCreate()
   import spark.implicits._
 
+  /** Creates a single-row DF to test the currently loaded model */
   def testSingleRecord(paramArr: Array[(String, String, String)]): String = {
     val values = Seq(paramArr.map(_._3).mkString(","))
     val singleDF = values.toDF
@@ -57,6 +61,7 @@ class MLModel {
     prediction.select("predictedExit").head.toString
   }
 
+  /** Loads a new model into the modelMap HashMap */
   def loadModel(modelName: String, view: OptionsView) = {
     val id = modelName.filterNot("model".toSet)
     if (modelMap.size > 0) modelMap.clear()
@@ -67,11 +72,13 @@ class MLModel {
     forestRun
   }
 
+  /** Gets the trained model names in file*/
   def getModels: Seq[String] = {
     val dir = new File("trained")
     if (dir.exists && dir.isDirectory) dir.listFiles.filter(_.isDirectory).toSeq.map(_.getName) else Seq[File]().map(_.getName)
   }
 
+  /** Starts the pre-processing and machine-learning pipeline tasks for the parameters selected.*/
   def runModel(airport: String, treeNum: Int, depthNum: Int, featureList: List[String], view: OptionsView): String = {
     val startEpoch = Calendar.getInstance.getTimeInMillis
 

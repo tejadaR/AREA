@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA
 
 import scalafx.Includes._
@@ -12,6 +15,7 @@ import scalafx.scene.control.TabPane.TabClosingPolicy
 import rtejada.projects.AREA.view.OptionsView
 import scalafx.stage.Screen
 
+/** Primary stage, main model, view and controller initialized here */
 class MainApp extends JFXApp {
   val stageX = Screen.primary.bounds.minX
   val stageY = Screen.primary.bounds.minY
@@ -19,6 +23,8 @@ class MainApp extends JFXApp {
   val stageHeight = Screen.primary.bounds.height
 
   val mlModel: MLModel = new MLModel
+  
+  //Constructor-injection
   val optionsController: OptionsController = new OptionsController(mlModel, optionsView, stageWidth, stageHeight)
   val optionsView: OptionsView = new OptionsView(optionsController, stageWidth, stageHeight)
 

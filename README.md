@@ -25,7 +25,9 @@
 
 ## Developers
 
-AREA uses a derivation of the model–view–controller (MVC) architectural pattern called **Model-View-Presenter(Supervising Controller)**. The implementation is based on the theory explained here: https://martinfowler.com/eaaDev/SupervisingPresenter.html 
+AREA uses a derivation of the model–view–controller (MVC) architectural pattern called **Model-View-Presenter(Supervising Controller)**. The implementation is based on the theory explained [here](https://martinfowler.com/eaaDev/SupervisingPresenter.html) 
+
+Wiring between mutually dependent services is done via constructor-injection. This is achieved by passing said services by-name, so that they can be evaluated lazily.
 
 *Behind the scenes functionality:*
  - **Pre-processing**: Filters out null data and discards irrelevant columns.

@@ -1,11 +1,5 @@
-/*
- * Copyright (c) 2016 Roman Tejada. All rights reserved. 
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential
- * 
- * Contributors:
- * 	Roman Tejada - initial API and implementation
- */
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
 
 package rtejada.projects.AREA
 
