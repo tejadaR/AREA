@@ -10,7 +10,7 @@ import scalafx.collections.ObservableBuffer
 import scalafx.geometry.{ Pos, Insets }
 import scalafx.event.ActionEvent
 import scalafx.scene.image.{ Image, ImageView }
-import scalafx.scene.control.ScrollPane.ScrollBarPolicy
+import javafx.scene.control.ScrollPane.ScrollBarPolicy
 
 /** View implementation */
 class OptionsView(controller: => OptionsController, stageWidth: Double, stageHeight: Double) {
@@ -123,7 +123,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     cbAnchor.children.add(cbPane)
     AnchorPane.setAnchors(cbPane, bodyPane.getPrefHeight * 0.01, bodyPane.getPrefHeight * 0.01,
       bodyPane.getPrefHeight * 0.01, bodyPane.getPrefHeight * 0.01)
-    cbAnchor.styleClass.add("subModule")    
+    cbAnchor.styleClass.add("subModule")
 
     val runButton = new Button("Run") {
       onAction = (ae: ActionEvent) => {
@@ -137,20 +137,9 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
       visible = false
     }
     val statusPane = new AnchorPane
-    val statusBox = new HBox
-    statusBox.spacing = (w * 0.05)
     val statusLabel = new Label("Standing by")
     statusLabel.styleClass.add("statusLabel")
-    val refreshButton = new Button {
-      graphic = new ImageView {
-        image = new Image(this.getClass.getResourceAsStream("/img/sync.png"), h * 0.02, h * 0.02, true, true)
-      }
-      onAction = (ae: ActionEvent) => {
-        controller.onRefresh
-      }
-    }
-    statusBox.children.addAll(statusLabel, refreshButton)
-    statusPane.children.add(statusBox)
+    statusPane.children.add(statusLabel)
 
     val areaPane = new AnchorPane
     areaPane.prefWidth = w
@@ -221,15 +210,28 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
 
     val testPane = new AnchorPane
     val testBox = new HBox
+    testBox.spacing = w * 0.01
     val testButton = new Button("Predict") {
       disable = true
       onAction = (ae: ActionEvent) => {
         controller.onTest(paramPane)
       }
     }
+
+    val mapButton = new Button("Diagram") {
+      disable = true
+      onAction = (ae: ActionEvent) => {
+        val airportCode = controller.model.modelMap.head._2._2.getAirportCode
+        controller.onMapSelected(airportCode)
+      }
+    }
+
     val testLabel = new Label("")
     testBox.children.addAll(testButton, testLabel)
-    testPane.children.add(testBox)
+    val lowerControls = new HBox
+    lowerControls.spacing = w * 0.03
+    lowerControls.children.addAll(testBox, mapButton)
+    testPane.children.add(lowerControls)
 
     bodyBox.children.addAll(loadPane, paramPane, testPane)
     bodyBox.prefWidth = w
@@ -267,8 +269,8 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     resultsPane.children = controller.getButtonSeq
     val scPane = new ScrollPane
     scPane.content = resultsPane
-    scPane.setHbarPolicy(ScrollBarPolicy.Never)
-    scPane.setVbarPolicy(ScrollBarPolicy.Always)
+    scPane.setHbarPolicy(ScrollBarPolicy.NEVER)
+    scPane.setVbarPolicy(ScrollBarPolicy.ALWAYS)
     scPane.setMaxWidth(bodyPane.getPrefWidth * 0.8)
     scPane.setPrefHeight(bodyPane.getPrefHeight * 0.7)
     scPane.setMaxHeight(bodyPane.getPrefHeight * 0.8)

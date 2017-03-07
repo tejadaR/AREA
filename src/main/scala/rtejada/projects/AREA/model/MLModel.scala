@@ -27,7 +27,7 @@ class MLModel {
   val airportSeq = Seq("PHX", "ATL", "BWI", "DEN")
   val treeSeq = Seq(40, 85, 115)
   val depthSeq = Seq(5, 6, 7)
-  val modelMap = HashMap[String, Tuple2[PipelineModel, Array[Feature]]]()
+  val modelMap = HashMap[String, Tuple2[PipelineModel, ForestRun]]()
 
   PropertyConfigurator.configure("log4j.properties") // Logging configuration
   val conf = new SparkConf().setAppName("AREA").setMaster("local[*]")
@@ -63,10 +63,8 @@ class MLModel {
     val forestRun = new ForestRun("output/features" + id + ".json",
       "output/randomForest" + id + ".txt",
       "output/runInfo" + id + ".json")
-    modelMap += (id -> (PipelineModel.load("trained/" + modelName), forestRun.featureExtracted.dropRight(1)))
-    (forestRun.getAirportCode,
-      forestRun.getAccuracy,
-      modelMap.apply(id)._2)
+    modelMap += (id -> (PipelineModel.load("trained/" + modelName), forestRun))
+    forestRun
   }
 
   def getModels: Seq[String] = {

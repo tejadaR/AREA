@@ -17,9 +17,14 @@ import scalafx.scene.Node
 import rtejada.projects.AREA.model.ForestRun
 import rtejada.projects.AREA.model.TreeNode
 import scalafx.geometry.Pos
-import scalafx.scene.control.ScrollPane.ScrollBarPolicy
+import javafx.scene.control.ScrollPane.ScrollBarPolicy
+import javafx.animation.Timeline
+import javafx.animation.KeyFrame
+import javafx.util.Duration
+import javafx.scene.control.Tooltip
+import javafx.scene.control.OverrunStyle
 
-class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
+class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Double, stageH: Double) {
   val model = mlModel
 
   /** Gets a string with minutes and seconds from a millisecond input */
@@ -29,15 +34,14 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
     minutes + "m " + extraSeconds + "s"
   }
 
-  def onSelectTree(tree: Int, conditionLabel: Label): (ScrollPane, Label) = {
-    val newPane = genTreePane(tree, conditionLabel)
+  def onSelectTree(tree: Int): (ScrollPane, Label) = {
+    val newPane = genTreePane(tree)
     val newImportancesLabel = genTreeImportancesLabel(tree)
-
     (newPane, newImportancesLabel)
   }
 
   /** Generates tree grid */
-  def genTreePane(treeIndex: Int, conditionLabel: Label): ScrollPane = {
+  def genTreePane(treeIndex: Int): ScrollPane = {
 
     def getCellsX(depth: Int) = (Math.pow(2, depth) + 1).toInt
     val treeStack = new StackPane
@@ -64,23 +68,23 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
     val rootNode = forestRun.forest(treeIndex)
     val rootPosX = (treeCellsX - 1) / 2
     rootNode.setGridPosX(rootPosX)
-    val rootShape = getNodeShape(rootNode, nodeRadius, conditionLabel)
+    val rootShape = getNodeShape(rootNode, nodeRadius)
     grid.add(rootShape, rootPosX, rootNode.getDepth)
 
-    fillTreeGrid(rootNode, grid, gc, maxDepth, nodeRadius, paddingH, paddingV, conditionLabel)
+    fillTreeGrid(rootNode, grid, gc, maxDepth, nodeRadius, paddingH, paddingV)
     treeStack.children = List(grid, treeCanvas)
 
     val scrollPane = new ScrollPane
-    scrollPane.setHbarPolicy(ScrollBarPolicy.Always)
-    scrollPane.setVbarPolicy(ScrollBarPolicy.Never)
-
+    scrollPane.setHbarPolicy(ScrollBarPolicy.ALWAYS)
+    scrollPane.setVbarPolicy(ScrollBarPolicy.NEVER)
     scrollPane.content = treeStack
 
     scrollPane
   }
+
   /** Recursively draws and links nodes on the grid */
   private def fillTreeGrid(parent: TreeNode, grid: GridPane, gc: GraphicsContext, maxDepth: Int, nodeRadius: Int,
-                           paddingH: Int, paddingV: Int, conditionLabel: Label): Unit = {
+                           paddingH: Int, paddingV: Int): Unit = {
     val leftChild = parent.getChild(true).get
     val rightChild = parent.getChild(false).get
 
@@ -98,8 +102,8 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
 
     val bothPosY = leftChild.getDepth
 
-    val leftShape = getNodeShape(leftChild, nodeRadius, conditionLabel)
-    val rightShape = getNodeShape(rightChild, nodeRadius, conditionLabel)
+    val leftShape = getNodeShape(leftChild, nodeRadius)
+    val rightShape = getNodeShape(rightChild, nodeRadius)
 
     grid.add(leftShape, leftChildX, bothPosY)
     grid.add(rightShape, rightChildX, bothPosY)
@@ -113,23 +117,28 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
       bothPosY * (nodeRadius * 2 + paddingV))
 
     if (leftChild.getChild(true) != None)
-      fillTreeGrid(leftChild, grid, gc, maxDepth, nodeRadius, paddingH, paddingV, conditionLabel)
+      fillTreeGrid(leftChild, grid, gc, maxDepth, nodeRadius, paddingH, paddingV)
     if (rightChild.getChild(true) != None)
-      fillTreeGrid(rightChild, grid, gc, maxDepth, nodeRadius, paddingH, paddingV, conditionLabel)
+      fillTreeGrid(rightChild, grid, gc, maxDepth, nodeRadius, paddingH, paddingV)
   }
 
   /** Generates node image */
-  private def getNodeShape(node: TreeNode, nodeRadius: Int, conditionLabel: Label): Circle = {
+  private def getNodeShape(node: TreeNode, nodeRadius: Int): Circle = {
     val shape = new Circle {
       radius = (when(hover) choose (nodeRadius * 1.5) otherwise nodeRadius).toDouble
       fill = if (node.getDepth == 0) Color.Gold
       else if (node.getChildren.isEmpty) Color.DarkBlue
       else Color.LightSeaGreen
     }
+    val conditionTip = new Tooltip
+    conditionTip.wrapText = true
+    conditionTip.setMaxWidth(stageW * 0.6)
+    adjustTooltipDelay(conditionTip)
+    Tooltip.install(shape, conditionTip)
     val enterEvent: (MouseEvent) => MouseEvent = { event: MouseEvent =>
       {
         shape.fill = Color.Coral
-        conditionLabel.text = genConditionStr(node)
+        conditionTip.text = genConditionStr(node)
         event
       }
     }
@@ -138,7 +147,6 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
         shape.fill = if (node.getDepth == 0) Color.Gold
         else if (node.getChildren.isEmpty) Color.DarkBlue
         else Color.LightSeaGreen
-        conditionLabel.text = "Hover over nodes to see conditions or predictions (left branch= TRUE, right branch= FALSE)"
         event
       }
     }
@@ -177,6 +185,19 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun) {
     }).mkString
 
     new Label(importancesText)
+  }
+
+  def adjustTooltipDelay(tooltip: javafx.scene.control.Tooltip) = {
+    val fieldBehavior = tooltip.getClass.getDeclaredField("BEHAVIOR")
+    fieldBehavior.setAccessible(true)
+    val objectBehavior = fieldBehavior.get(tooltip)
+
+    val fieldTimer = objectBehavior.getClass.getDeclaredField("activationTimer")
+    fieldTimer.setAccessible(true)
+    val objTimer = fieldTimer.get(objectBehavior).asInstanceOf[Timeline]
+
+    objTimer.getKeyFrames.clear
+    objTimer.getKeyFrames.add(new KeyFrame(new Duration(0)))
   }
 
   def formatFeature(in: String): String = in match {

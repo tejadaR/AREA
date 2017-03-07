@@ -22,8 +22,8 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
   tab.text = forestRun.getAirportCode
   viewBox.styleClass.add("container")
 
-  val infoBox = genInfoBox(stageWidth, stageHeight * 0.45)
-  val forestBox = genViewerBox(stageWidth, stageHeight * 0.55)
+  val infoBox = genInfoBox(stageWidth, stageHeight * 0.65)
+  val forestBox = genViewerBox(stageWidth, stageHeight * 0.35)
   viewBox.children.addAll(infoBox, forestBox)
 
   private def genInfoBox(w: Double, h: Double) = new VBox with TitledModuleH {
@@ -108,14 +108,9 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     val titleLabel = new Label("Tree Viewer")
     val numTreesLabel = new Label(forestRun.getForestNumTrees + " trees")
     val maxDepthLabel = new Label("Max depth: " + forestRun.getForestMaxDepth)
-    val conditionLabel = new Label("Hover over nodes to see conditions or predictions (left branch= TRUE, right branch= FALSE)")
-    conditionLabel.setPrefHeight(bodyPane.getPrefHeight * 0.25)
-    conditionLabel.wrapText = true
-    conditionLabel.setContentDisplay(ContentDisplay.Top)
-    conditionLabel.alignmentInParent = Pos.TopLeft
 
-    val gridPane = controller.genTreePane(0, conditionLabel) // default first tree
-    gridPane.setPrefHeight(bodyPane.getPrefHeight * 0.65)
+    val gridPane = controller.genTreePane(0) // default first tree
+    gridPane.prefHeight = bodyPane.getPrefHeight
     gridPane.hvalue = 0.5
 
     val treeImpTitle = new Label("Tree Feature Importances")
@@ -126,7 +121,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     treeImpBox.setPrefWidth(bodyPane.getPrefWidth * 0.2)
 
     val viewerBox = new VBox
-    viewerBox.children = List(gridPane, conditionLabel)
+    viewerBox.children = List(gridPane)
     viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.8)
     val numTrees = forestRun.getForestNumTrees
     val treeSelector = new ComboBox[Int] {
@@ -135,10 +130,10 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
       items = ObservableBuffer(1 to numTrees)
       selectionModel().selectFirst()
       onAction = (event: ActionEvent) => {
-        val paneAndLabel = controller.onSelectTree(selectionModel().getSelectedItem - 1, conditionLabel)
+        val paneAndLabel = controller.onSelectTree(selectionModel().getSelectedItem - 1)
         val newPane = paneAndLabel._1
         val newLabel = paneAndLabel._2
-        newPane.setPrefHeight(bodyPane.getPrefHeight * 0.65)
+        newPane.prefHeight = bodyPane.getPrefHeight
         newPane.hvalue = 0.5
         viewerBox.children.remove(0)
         viewerBox.children.insert(0, newPane)

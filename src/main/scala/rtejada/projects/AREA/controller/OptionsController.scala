@@ -27,10 +27,95 @@ import scalafx.scene.image.Image
 import scalafx.geometry.Pos
 import scalafx.scene.layout.AnchorPane
 import org.apache.commons.io.FileUtils
+import scalafx.stage.Stage
+import scalafx.scene.Scene
+import scalafx.scene.input.MouseEvent
+import javafx.animation.Timeline
+import javafx.animation.KeyFrame
+import javafx.util.Duration
 
 /** Controller implementation */
 class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Double, stageH: Double) {
   val model = mlModel
+
+  def onMapSelected(airportCode: String): Unit = {
+    val lcCode = airportCode match {
+      case "KPHX" => "phx"
+      case "KATL" => "atl"
+      case "KDEN" => "den"
+      case "KBWI" => "bwi"
+    }
+
+    val airportConfig = airportCode match {
+      case "KPHX" => ("phx", (-112.030832, 33.442311), (-111.990, 33.426286))
+      case "KATL" => ("atl", (-84.4491665, 33.651087), (-84.4041575, 33.61992152))
+      case "KDEN" => ("den", (-104.7283332, 39.897435), (-104.616671, 39.826925))
+      case "KBWI" => ("bwi", (-76.689681952, 39.1880947144), (-76.65158824, 39.1636909281))
+    }
+    val startPoint = airportConfig._2
+    val endPoint = airportConfig._3
+
+    val scPane = new ScrollPane
+    scPane.prefWidth = stageW * 0.8
+    scPane.prefHeight = stageH * 0.8
+
+    val airportImg = new ImageView {
+      image = new Image(this.getClass.getResourceAsStream("/img/" + lcCode + "_img.png"), stageW * 0.8, stageH * 0.8, true, true)
+    }
+    scPane.content = airportImg
+    val imgScene = new Scene(scPane)
+    val imgStage = new Stage
+    val coordsTip = new Tooltip
+    Tooltip.install(airportImg, coordsTip)
+    val moveEvent: (MouseEvent) => MouseEvent = { event: MouseEvent =>
+      {
+        val xRatio = event.x / airportImg.getImage.getWidth
+        val yRatio = event.y / airportImg.getImage.getHeight
+        val long = BigDecimal(startPoint._1 + ((endPoint._1 - startPoint._1) * xRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
+        val lat = BigDecimal(startPoint._2 + ((endPoint._2 - startPoint._2) * yRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
+        coordsTip.text = "(" + long + ", " + lat + ")"
+        coordsTip.show(airportImg, event.x, event.y)
+        event
+      }
+    }
+    val clickEvent: (MouseEvent) => MouseEvent = { event: MouseEvent =>
+      {
+        val xRatio = event.x / airportImg.getImage.getWidth
+        val yRatio = event.y / airportImg.getImage.getHeight
+        val long = BigDecimal(startPoint._1 + ((endPoint._1 - startPoint._1) * xRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
+        val lat = BigDecimal(startPoint._2 + ((endPoint._2 - startPoint._2) * yRatio)).setScale(4, BigDecimal.RoundingMode.HALF_UP)
+        val longField = view.analysisBox.singleTestModule.paramPane.children.toArray.
+          map(_.asInstanceOf[javafx.scene.layout.HBox]).
+          filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
+          map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.TextField]).
+          find(node => node.getId == "touchdownLongselector")
+        val latField = view.analysisBox.singleTestModule.paramPane.children.toArray.
+          map(_.asInstanceOf[javafx.scene.layout.HBox]).
+          filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
+          map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.TextField]).
+          find(node => node.getId == "touchdownLatselector")
+
+        longField match {
+          case Some(field) => field.text = long.toString
+          case None        =>
+        }
+        latField match {
+          case Some(field) => field.text = lat.toString
+          case None        =>
+        }
+
+        imgStage.close()
+        event
+      }
+    }
+
+    airportImg.setOnMouseMoved(moveEvent)
+    airportImg.setOnMouseClicked(clickEvent)
+    imgStage.scene = imgScene
+    imgStage.onCloseRequest = handle { imgStage.close() }
+    imgStage.showAndWait
+
+  }
 
   def onClearRun(id: String) {
     val runFuture = Future {
@@ -76,7 +161,6 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
           {
             onRefresh
             view.analysisBox.singleTestModule.modelSelector.items = ObservableBuffer(model.getModels)
-
           }
         }
       }
@@ -113,8 +197,9 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       val forestRun = new ForestRun("output/features" + runID + ".json",
         "output/randomForest" + runID + ".txt",
         "output/runInfo" + runID + ".json")
-      val resultsController: ResultsController = new ResultsController(model, forestRun)
+      val resultsController: ResultsController = new ResultsController(model, forestRun, stageW, stageH)
       val resultsView: ResultsView = new ResultsView(resultsController, forestRun, stageW, stageH)
+      resultsView.tab.id = runID
       val pane = new AnchorPane
       val closeButton = new Button {
         graphic = new ImageView {
@@ -131,9 +216,11 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
         text = "Run" + runID + System.lineSeparator() + forestRun.getAirportCode +
           ", Acc: " + BigDecimal(forestRun.getAccuracy).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%"
         onAction = (ae: ActionEvent) => {
-          if (!view.tab.getTabPane.getTabs.contains(resultsView.tab))
+          val optTab = view.tab.getTabPane.getTabs.find(_.id.value == runID)
+          if (!optTab.isDefined) {
             view.tab.getTabPane.getTabs.add(resultsView.tab)
-          view.tab.getTabPane.getSelectionModel.select(resultsView.tab)
+            view.tab.getTabPane.getSelectionModel.select(resultsView.tab)
+          } else view.tab.getTabPane.getSelectionModel.select(optTab.get)
         }
         prefWidth = stageW * 0.1
         prefHeight = stageH * 0.06
@@ -148,25 +235,22 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     if (!model.modelMap.isEmpty) {
       view.analysisBox.singleTestModule.testLabel.text = "Predicting..."
       view.analysisBox.singleTestModule.testButton.disable = true
-      val testParamArray = model.modelMap.head._2._2.map(feat => {
+      view.analysisBox.singleTestModule.mapButton.disable = true
+      val testParamArray = model.modelMap.head._2._2.featureExtracted.dropRight(1).map(feat => {
         if (feat.featureType == "categorical") {
           (feat.featureName, feat.featureType,
             view.analysisBox.singleTestModule.paramPane.children.toArray.
             map(_.asInstanceOf[javafx.scene.layout.HBox]).
             filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.ChoiceBox[String]]).
             map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.ChoiceBox[String]]).
-            find(node => {
-              node.getId == feat.featureName + "selector"
-            }).get.getValue)
+            find(node => node.getId == feat.featureName + "selector").get.getValue)
         } else
           (feat.featureName, feat.featureType,
             view.analysisBox.singleTestModule.paramPane.children.toArray.
             map(_.asInstanceOf[javafx.scene.layout.HBox]).
             filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
             map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.TextField]).
-            find(node => {
-              node.getId == feat.featureName + "selector"
-            }).get.getText)
+            find(node => node.getId == feat.featureName + "selector").get.getText)
       })
 
       val runFuture = Future { model.testSingleRecord(testParamArray) }
@@ -174,12 +258,14 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
         case Success(prediction) => {
           Platform.runLater {
             view.analysisBox.singleTestModule.testButton.disable = false
+            view.analysisBox.singleTestModule.mapButton.disable = false
             view.analysisBox.singleTestModule.testLabel.text = "Prediction: Exit " + prediction
           }
         }
         case Failure(e) => {
           Platform.runLater {
             view.analysisBox.singleTestModule.testButton.disable = false
+            view.analysisBox.singleTestModule.mapButton.disable = false
             view.analysisBox.singleTestModule.testLabel.text = "testing failed"
             e.printStackTrace
           }
@@ -195,16 +281,20 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     view.analysisBox.singleTestModule.paramPane.children.clear
     view.analysisBox.singleTestModule.testButton.disable = true
     view.analysisBox.singleTestModule.loadButton.disable = true
+    view.analysisBox.singleTestModule.mapButton.disable = true
     view.analysisBox.singleTestModule.testLabel.text = ""
     val runFuture = Future { model.loadModel(modelName, view) }
     runFuture.onComplete {
-      case Success(loaded) => {
+      case Success(forestRun) => {
         Platform.runLater {
-          val featureArray = loaded._3
+          val accuracy = forestRun.getAccuracy
+          val airportCode = forestRun.getAirportCode
+          val featureArray = forestRun.featureExtracted.dropRight(1)
           view.analysisBox.singleTestModule.statusLabel.text = " loaded: " + modelName + " " +
-            loaded._1 + ", Acc: " + BigDecimal(loaded._2).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%"
+            airportCode + ", Acc: " + BigDecimal(accuracy).setScale(2, BigDecimal.RoundingMode.HALF_UP) + "%"
           view.analysisBox.singleTestModule.testButton.disable = false
           view.analysisBox.singleTestModule.loadButton.disable = false
+          view.analysisBox.singleTestModule.mapButton.disable = false
           view.analysisBox.singleTestModule.paramPane.visible = true
           val selectorArray = featureArray.map(feat => {
             val hBox = new HBox
@@ -259,7 +349,6 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       view.analysisBox.statusLabel.text = "Loading data..."
       view.analysisBox.runButton.disable = true
       view.analysisBox.runPb.visible = true
-      view.analysisBox.refreshButton.disable = true
       val runFuture = Future { model.runModel(airport, treeNum, depthNum, featureList, view) }
       runFuture.onComplete {
         case Success(value) => {
@@ -268,16 +357,15 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
             view.analysisBox.runButton.disable = false
             view.analysisBox.runPb.progress = 0
             view.analysisBox.runPb.visible = false
-            view.analysisBox.refreshButton.disable = false
+            onRefresh
           }
         }
         case Failure(e) => {
           Platform.runLater {
-            view.analysisBox.statusLabel.text = e.getMessage //"Run Failed...Standing by"
+            view.analysisBox.statusLabel.text = "Run Failed...Standing by" //e.getMessage
             view.analysisBox.runButton.disable = false
             view.analysisBox.runPb.progress = 0
             view.analysisBox.runPb.visible = false
-            view.analysisBox.refreshButton.disable = false
           }
           e.printStackTrace
         }
@@ -298,6 +386,19 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
     case "decel"         => "Deceleration(m/s\u00B2)"
     case "carrier"       => "Airline"
     case "traffic"       => "Traffic"
+  }
+
+  def adjustTooltipDelay(tooltip: javafx.scene.control.Tooltip) = {
+    val fieldBehavior = tooltip.getClass.getDeclaredField("BEHAVIOR")
+    fieldBehavior.setAccessible(true)
+    val objectBehavior = fieldBehavior.get(tooltip)
+
+    val fieldTimer = objectBehavior.getClass.getDeclaredField("activationTimer")
+    fieldTimer.setAccessible(true)
+    val objTimer = fieldTimer.get(objectBehavior).asInstanceOf[Timeline]
+
+    objTimer.getKeyFrames.clear
+    objTimer.getKeyFrames.add(new KeyFrame(new Duration(0)))
   }
 
 }

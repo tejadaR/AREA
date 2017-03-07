@@ -82,7 +82,8 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
 
     def calcExit(positions: String) = {
       val touchDownLat = Math.abs(positions.split("\\|")(0).split(";")(0).toDouble)
-      val threshold = 0.00096
+      val touchDownLong = Math.abs(positions.split("\\|")(0).split(";")(1).toDouble)
+      val threshold = 0.00096 //meters
       val ifExit = (exitCfg: Array[Row], inStr: String) => {
         val thresholdLat = 0.00016
         val latInput = Math.abs(inStr.split(";")(0).toDouble)
@@ -93,9 +94,12 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
           val thisLongLower = row.apply(3).asInstanceOf[String].toDouble
 
           val latCondition = Math.abs(latInput - thisLat) < thresholdLat
-          val longCondition = longInput < thisLongUpper && longInput > thisLongLower
-          val farCondition = (latInput - touchDownLat) < threshold
-          if (latCondition && longCondition && farCondition) true else false
+          val longCondition = Math.abs(longInput) < Math.abs(thisLongUpper) &&
+            Math.abs(longInput) > Math.abs(thisLongLower)
+          val closeLatCondition = Math.abs(latInput - touchDownLat) < threshold
+          val closeLongCondition = Math.abs(Math.abs(longInput) - Math.abs(touchDownLong)) < threshold
+          val farExitCondition = closeLatCondition || closeLongCondition
+          if (latCondition && longCondition && farExitCondition) true else false
         }
         exitCfg.find(isExit(_)) match {
           case Some(row: Row) => row.apply(0).asInstanceOf[String]
