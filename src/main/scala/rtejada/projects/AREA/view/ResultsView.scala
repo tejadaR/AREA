@@ -115,7 +115,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     val maxDepthLabel = new Label("Max depth: " + forestRun.getForestMaxDepth)
 
     val gridPane = controller.genTreePane(0) // default first tree
-    gridPane.prefHeight = bodyPane.getPrefHeight
+    gridPane.prefHeight = bodyPane.getPrefHeight * 0.9
     gridPane.hvalue = 0.5
 
     val treeImpTitle = new Label("Tree Feature Importances")
@@ -127,7 +127,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
 
     val treeBranchLabel = new Label("Left branch = YES,  Right branch = NO")
     treeBranchLabel.styleClass.add("importantTip")
-    
+
     val viewerBox = new VBox
     viewerBox.children = List(treeBranchLabel, gridPane)
     viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.8)
@@ -157,6 +157,8 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     headerBox.setPrefHeight(bodyPane.getPrefHeight * 0.1)
     headerPane.children.add(headerBox)
     AnchorPane.setAnchors(headerBox, 0, headerPane.getPrefWidth * 0.05d, 0, headerPane.getPrefWidth * 0.05d)
+    AnchorPane.setTopAnchor(bodyBox, bodyPane.getPrefHeight * 0.008d)
+    AnchorPane.setLeftAnchor(bodyBox, bodyPane.getPrefWidth * 0.008d)
     bodyBox.children.addAll(viewerBox, treeImpBox)
   }
 
