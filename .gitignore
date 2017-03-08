@@ -63,3 +63,4 @@ bin/
 processedData
 unit-tests.log
 work/
+metastore_db/
