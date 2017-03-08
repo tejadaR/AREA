@@ -2,6 +2,8 @@
 
 *AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims to predict an arriving aircraft's runway exit choice. It is able to use thousands of flight records to train a Random Forest Classification Model. The model then makes predictions on a testing dataset.*
 
+A compiled, downloadable release of this software can be found [here](https://github.com/tejadaR/AREA/releases/tag/v2.0)
+
 # Functionality
 
  - **Model Training**: Create models by selecting the # of trees and the maximum tree depth.
@@ -21,7 +23,6 @@
 Brief demo of functionality:
 
 [![Demo](https://img.youtube.com/vi/ylonun7V3M0/0.jpg)](https://www.youtube.com/watch?v=ylonun7V3M0)
-
 
 ## Project Details
 
