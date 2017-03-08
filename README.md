@@ -14,9 +14,9 @@
 
  - **Single Landing Testing**: Use trained models to test an exit prediction, by providing landing parameters
 
- - **Aiport Diagram Viewer**: After loading a model, open it's airport diagram to view exits and set touchdown coordinates.
+ - **Airport Diagram Viewer**: After loading a model, open its airport diagram to view exits and set touchdown coordinates.
  
- - **Results Viewer**: View model details, feature importances, and the structure of each tree in the random foreset.
+ - **Results Viewer**: View model details, feature importances, and the structure of each tree in the random forest.
  
 Brief demo of functionality:
 
@@ -38,7 +38,8 @@ Wiring between mutually dependent services is done via constructor-injection. Th
 AREA handles pre-processing, testing and training tasks asynchronously by using Scala [Futures](http://docs.scala-lang.org/overviews/core/futures.html), **allowing users to concurrently train, load and view different models.**
 
 
-*Deployment Instructions*:
+## Deployment Instructions
+
 Scala, JDK, and sbt are required. To deploy the GUI with all dependencies included, use:
 
 > sbt assembly
@@ -49,7 +50,7 @@ in the project's root folder. Then run with:
 
 If running in Windows, download hadoop's winutils.exe and save as: C:\winutil\bin\winutils.exe
 
-*Developer Requirements*:
+## Developer Requirements
 
 1. Latest version of Java SE Development Kit (JDK)
 2. Latest version of Scala
