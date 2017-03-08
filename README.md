@@ -6,24 +6,23 @@
 
  - **Model Training**: Create models by selecting the # of trees and the maximum tree depth.
  
-![Run](docs/images/area_run.png)
-- - - -
  - **Airport Flexibility**: Train and test models using data from the currently supported international airports:
    - Phoenix Sky Harbor(PHX)
    - Hartsfield–Jackson Atlanta(ATL)
    - Denver(DEN)
    - Baltimore–Washington(BWI)
 
-- - - -
  - **Single Landing Testing**: Use trained models to test an exit prediction, by providing landing parameters
+
+ - **Aiport Diagram Viewer**: After loading a model, open it's airport diagram to view exits and set touchdown coordinates.
  
-![Load](docs/images/area_load.png)
-- - - -
  - **Results Viewer**: View model details, feature importances, and the structure of each tree in the random foreset.
  
-![View](docs/images/area_view.png)
+Brief demo of functionality:
+[![Demo](https://img.youtube.com/vi/ylonun7V3M0/0.jpg)](https://www.youtube.com/watch?v=ylonun7V3M0)
 
-## Developers
+
+## Project Details
 
 AREA uses a derivation of the model–view–controller (MVC) architectural pattern called **Model-View-Presenter(Supervising Controller)**. The implementation is based on the theory explained [here](https://martinfowler.com/eaaDev/SupervisingPresenter.html) 
 

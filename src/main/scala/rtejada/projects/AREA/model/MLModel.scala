@@ -63,7 +63,7 @@ class MLModel {
 
   /** Loads a new model into the modelMap HashMap */
   def loadModel(modelName: String, view: OptionsView) = {
-    val id = modelName.filterNot("model".toSet)
+    val id = modelName.filter(_.isDigit)
     if (modelMap.size > 0) modelMap.clear()
     val forestRun = new ForestRun("output/features" + id + ".json",
       "output/randomForest" + id + ".txt",
@@ -115,9 +115,9 @@ class MLModel {
       "testCount" -> testCount.toString,
       "runDuration" -> runDuration.toString)
 
-    Interface.saveModel(forestHandler.finalModel, forestHandler.runTimeId)
+    Interface.saveModel(forestHandler.finalModel, forestHandler.runTimeId, airportCode)
     Interface.outputJsonWithDate(runInfoMap, "runInfo" + forestHandler.runTimeId + ".json")
-    f"RandomForestClassifier Model Accuracy: $accuracy%2.2f%% using ${testCount} test records"
+    forestHandler.runTimeId.toString
   }
 
 }

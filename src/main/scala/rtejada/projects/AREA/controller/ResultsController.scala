@@ -164,7 +164,7 @@ class ResultsController(mlModel: => MLModel, forestRun: ForestRun, stageW: Doubl
       val featName = formatFeature(forestRun.getFeatureName(node.getFeatureIndex))
       val featCatArr = forestRun.getFeatureCategories(node.getFeatureIndex)
       featCatArr match {
-        case None => "Is " + featName + rawCondition + "?"
+        case None => "Is " + featName + " " + rawCondition + "?"
         case Some(featureCategories) => "Is " + featName + " in (" + {
           val start = rawCondition.indexOf("{") + 1
           val end = rawCondition.indexOf("}")

@@ -28,7 +28,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
   val infoBox = genInfoBox(stageWidth, stageHeight * 0.65)
   val forestBox = genViewerBox(stageWidth, stageHeight * 0.35)
   viewBox.children.addAll(infoBox, forestBox)
-  
+
   /** Generates information summary module*/
   private def genInfoBox(w: Double, h: Double) = new VBox with TitledModuleH {
     val airportTitle = new Label(forestRun.getAirportCode + " AIRPORT")
@@ -125,8 +125,11 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     }
     treeImpBox.setPrefWidth(bodyPane.getPrefWidth * 0.2)
 
+    val treeBranchLabel = new Label("Left branch = YES,  Right branch = NO")
+    treeBranchLabel.styleClass.add("importantTip")
+    
     val viewerBox = new VBox
-    viewerBox.children = List(gridPane)
+    viewerBox.children = List(treeBranchLabel, gridPane)
     viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.8)
     val numTrees = forestRun.getForestNumTrees
     val treeSelector = new ComboBox[Int] {
@@ -140,12 +143,14 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
         val newLabel = paneAndLabel._2
         newPane.prefHeight = bodyPane.getPrefHeight
         newPane.hvalue = 0.5
-        viewerBox.children.remove(0)
-        viewerBox.children.insert(0, newPane)
+        viewerBox.children.remove(viewerBox.children.last)
+        viewerBox.children.add(newPane)
         treeImpBox.children.remove(treeImpBox.children.last)
         treeImpBox.children.add(newLabel)
       }
     }
+    treeSelector.styleClass.add("selector")
+
     val headerBox = new HBox
     headerBox.spacing = stageWidth * 0.8 * 0.1
     headerBox.children.addAll(titleLabel, treeSelector, numTreesLabel, maxDepthLabel)

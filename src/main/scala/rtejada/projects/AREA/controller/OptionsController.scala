@@ -117,7 +117,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
   }
 
   /** Clears a single run from all view controls, deleting all associated files*/
-  def onClearRun(id: String) {
+  def onClearRun(airportCode: String, id: String) {
     val runFuture = Future {
       def deletDir(file: File): Unit = {
         if (file.isDirectory)
@@ -128,7 +128,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       FileUtils.deleteQuietly(new File("output/features" + id + ".json"))
       FileUtils.deleteQuietly(new File("output/randomForest" + id + ".txt"))
       FileUtils.deleteQuietly(new File("output/runInfo" + id + ".json"))
-      deletDir(new File("trained/model" + id))
+      deletDir(new File("trained/" + airportCode + "model" + id))
     }
     runFuture.onComplete {
       case Success(s) => {
@@ -212,7 +212,7 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
         maxWidth = stageH * 0.005
         maxHeight = stageH * 0.005
         onAction = (ae: ActionEvent) => {
-          onClearRun(runID)
+          onClearRun(forestRun.getAirportCode, runID)
         }
       }
       val mainButton = new Button {
@@ -357,9 +357,9 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       view.analysisBox.runPb.visible = true
       val runFuture = Future { model.runModel(airport, treeNum, depthNum, featureList, view) }
       runFuture.onComplete {
-        case Success(value) => {
+        case Success(id) => {
           Platform.runLater {
-            view.analysisBox.statusLabel.text = "Run Completed... standing by"
+            view.analysisBox.statusLabel.text = "Run Completed with id: " + id + "... standing by"
             view.analysisBox.runButton.disable = false
             view.analysisBox.runPb.progress = 0
             view.analysisBox.runPb.visible = false

@@ -38,10 +38,10 @@ object Interface {
   }
 
   /** Saves model to a local folder*/
-  def saveModel(model: PipelineModel, modelID: Long) = {
+  def saveModel(model: PipelineModel, modelID: Long, airport:String) = {
     val file = new File("trained")
     if (!file.exists) file.mkdir
-    model.save("trained/model" + modelID)
+    model.save("trained/"+airport+"model" + modelID)
   }
 
   /** Outputs JSON with a datetime value to given fileName. */
