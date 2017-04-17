@@ -32,10 +32,10 @@ class ForestHandler(data: DataFrame, view: OptionsView, treeNum: Int, depthNum: 
   val Array(trainingData, testingData) = data.randomSplit(Array(0.7, 0.3), 4873)
 
   //Categorical and Continuous feature names in separate arrays
-  val namesCategorical = data.drop("exit").schema.fields.filter(struct => {
+  val namesCategorical = data.drop("positions").drop("links").drop("exit").schema.fields.filter(struct => {
     struct.dataType.toString == "StringType"
   }).map(_.name)
-  val namesContinuous = data.drop("exit").schema.fields.filter(struct => {
+  val namesContinuous = data.drop("positions").drop("links").drop("exit").schema.fields.filter(struct => {
     struct.dataType.toString == "LongType" || struct.dataType.toString == "DoubleType"
   }).map(_.name)
 
@@ -75,7 +75,7 @@ class ForestHandler(data: DataFrame, view: OptionsView, treeNum: Int, depthNum: 
   Interface.output(featureWriter.featureOutput, "features" + runTimeId + ".json")
 
   //Results
-  val predictions = results._1
+  val predictions = results._1.drop("features", "rawPrediction", "label", "probability")
   val accuracy = results._2
   val bestParams = results._3
 

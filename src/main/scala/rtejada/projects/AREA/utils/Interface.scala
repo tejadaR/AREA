@@ -38,10 +38,10 @@ object Interface {
   }
 
   /** Saves model to a local folder*/
-  def saveModel(model: PipelineModel, modelID: Long, airport:String) = {
+  def saveModel(model: PipelineModel, modelID: Long, airport: String) = {
     val file = new File("trained")
     if (!file.exists) file.mkdir
-    model.save("trained/"+airport+"model" + modelID)
+    model.save("trained/" + airport + "model" + modelID)
   }
 
   /** Outputs JSON with a datetime value to given fileName. */
@@ -95,6 +95,20 @@ object Interface {
     case ic"DEN" | ic"DENVER"    => spark.read.option("header", false).csv("data/runwayFlights_DEN_*.csv")
   }
 
+  /** Loading method for reading data csv files into spark */
+  def getLinks(airport: String, spark: SparkSession): (DataFrame, DataFrame) = airport match {
+    case "KPHX" => (spark.read.option("header", true).csv("testfiles/PHX-Nodes.csv"),
+      spark.read.option("header", true).csv("testfiles/PHX-Links.csv"))
+    case "KATL" => (spark.read.option("header", true).csv("testfiles/ATL-Nodes.csv"),
+      spark.read.option("header", true).csv("testfiles/ATL-Links.csv"))
+    case "KBWI" => (spark.read.option("header", true).csv("testfiles/BWI-Nodes.csv"),
+      spark.read.option("header", true).csv("testfiles/BWI-Links.csv"))
+    case "KDEN" => (spark.read.option("header", true).csv("testfiles/DEN-Nodes.csv"),
+      spark.read.option("header", true).csv("testfiles/DEN-Links.csv"))
+  }
+
+  def getSizeDefinition(spark: SparkSession) = spark.read.option("header", true).csv("data/sizedef.csv")
+
   /** Loading method for reading config csv files into spark */
   def getExitConfig(airport: String, spark: SparkSession): DataFrame = airport match {
     case ic"PHX" | ic"PHOENIX"   => spark.read.option("header", true).csv("data/exit_config_PHX.csv")
@@ -102,9 +116,9 @@ object Interface {
     case ic"BWI" | ic"BALTIMORE" => spark.read.option("header", true).csv("data/exit_config_BWI.csv")
     case ic"DEN" | ic"DENVER"    => spark.read.option("header", true).csv("data/exit_config_DEN.csv")
   }
-  
+
   /** Formats airport code*/
-  def getAirportCode(airport: String, spark: SparkSession): String = airport match {
+  def getAirportCode(airport: String): String = airport match {
     case ic"PHX" | ic"PHOENIX"   => "KPHX"
     case ic"ATL" | ic"ATLANTA"   => "KATL"
     case ic"BWI" | ic"BALTIMORE" => "KBWI"

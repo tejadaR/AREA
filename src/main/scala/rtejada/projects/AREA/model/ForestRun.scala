@@ -9,7 +9,7 @@ import net.liftweb.json._
 import scala.util.control.Breaks._
 import rtejada.projects.AREA.utils.Interface
 
-class ForestRun(featureFile: String, forestFile: String, runFile: String) {
+class ForestRun(featureFile: String, forestFile: String, runFile: String, optFile: String) {
   implicit val formats = net.liftweb.json.DefaultFormats
 
   //Loading files
@@ -40,6 +40,10 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String) {
   val forestImportances = lineArray.last.split(";").map(_.toDouble)
   val maDepth = getMaxDepth(importanceLine, lineArray)
   val maxDepth = getMaxDepth(importanceLine, lineArray)
+
+  val optLineArr = Source.fromFile(optFile).getLines().toIndexedSeq.toArray
+  val totalsLine = getOptCostLine(optLineArr)
+  //val details = new OptDetails(optLineArr.slice(begin, lineArray.length - 1))
 
   val forest = assembleTrees(importanceLine, lineArray)
   def getForestNumTrees: Int = forest.length
@@ -134,6 +138,15 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String) {
     case None       => " "
   })
 
+  /**
+   * Gets the index of the first line containing the word "Importances".
+   * If no line contains that word, returns the index of the first line with a space character
+   */
+  private def getOptCostLine(lineArray: Array[String]) = lineArray.indexOf(lineArray.find(_.contains("totals")) match {
+    case Some(line) => line
+    case None       => " "
+  })
+
   /** Gets the feature index from given line in the random forest output */
   private def readFeatureIndex(line: String): Int = {
     if (line.contains("If")) {
@@ -209,6 +222,8 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String) {
 }
 
 case class Feature(featureName: String, featureType: String, categories: Option[Array[String]])
+
+case class OptDetails(samples: Array[(String, Array[String], Array[String], Double, Double)], avgOptCost: Double, avgActualCost: Double)
 
 case class RunData(airportCode: String, accuracy: Double, numRunways: Integer,
                    numExits: Integer, trainCount: Integer, testCount: Integer, runDuration: Integer, date: String)

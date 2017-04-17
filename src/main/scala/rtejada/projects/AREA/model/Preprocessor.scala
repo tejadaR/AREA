@@ -8,12 +8,18 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.joda.time.format.DateTimeFormat
 import scala.util.control.Breaks._
-//import rtejada.projects.AREA.Main.spark.implicits._
 import scala.BigDecimal
 import scala.reflect.runtime.universe
 
 /** Filters bad data, extracts features and ensures dataset is labaled */
-class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: String, featureList: List[String]) extends Serializable {
+class Preprocessor(spark: SparkSession, inputData: DataFrame, inputConfig: DataFrame, airportCode: String, featureList: List[String],
+                   rawVertEdgeDF: (DataFrame, DataFrame)) extends Serializable {
+  import spark.implicits._
+
+  val cleanVertEdgeDF = cleanVE(rawVertEdgeDF)
+  val verticesDF = cleanVertEdgeDF._1
+  val exitEdgesDF = detectExits(cleanVertEdgeDF._2)
+
   //Transforming exit configuration DF to Array[Row]
   val exitConfig = inputConfig.collect()
 
@@ -30,20 +36,53 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   //Adding all features
   val fullFeaturesDF = addFeatures(filteredDF)
 
-  val readyDF = findExit(fullFeaturesDF, exitConfig)
+  val readyDF = findRealExit(fullFeaturesDF, exitEdgesDF)
 
-  val finalDF = readyDF.select("exit", featureList: _*)
+  val prelimList = featureList ++ List("positions", "links")
+  val finalDF = readyDF.select("exit", prelimList: _*)
+
+  private def cleanVE(input: (DataFrame, DataFrame)): (DataFrame, DataFrame) = {
+    val cleanVertices = input._1.select("nodeID", "nodeName", "latitude", "longitude")
+    cleanVertices.createOrReplaceTempView("Vertices")
+    val initEdges = input._2.select("LinkID", "LinkName", "NodeNameFrom", "NodeNameTo", "Length")
+    initEdges.createOrReplaceTempView("Edges")
+
+    val withSrcID = spark.sql("SELECT LinkID, LinkName, NodeNameFrom, NodeNameTo, Length, nodeID AS src " +
+      "FROM Edges INNER JOIN Vertices ON NodeNameFrom = nodeName")
+    withSrcID.createOrReplaceTempView("Edges")
+    val cleanEdges = spark.sql("SELECT LinkID, LinkName, NodeNameFrom, NodeNameTo, Length, src, nodeID AS dst " +
+      "FROM Edges INNER JOIN Vertices ON NodeNameTo = nodeName")
+
+    (cleanVertices, cleanEdges)
+  }
+
+  private def detectExits(inputDF: DataFrame): DataFrame = {
+    val runwayPattern = """[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?\_[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?""".r.unanchored
+    val exitPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
+    val isExitUDF = udf((linkName: String) => linkName match {
+      case runwayPattern(_*) => 0
+      case exitPattern(_*)   => 1
+      case _                 => 0
+    })
+    val exitsDF = inputDF.withColumn("isExit", isExitUDF.apply(inputDF.col("LinkName")).cast(IntegerType))
+    exitsDF
+  }
 
   /** Remove irrelevant Columns, null values and departure records. */
   private def filterFlights(inputDF: DataFrame, airport: String): DataFrame = {
     //Dropping irrelevant columns and filtering departures out
-    val relevantDF = inputDF.filter(s"arrAirport=='$airport'").select("callsign", "runway", "positions",
+    val relevantDF = inputDF.filter(s"arrAirport=='$airport'").select("callsign", "runway", "positions", "links",
       "depAirport", "arrAirport", "aircraftType", "arrGate")
 
-    relevantDF.show
     //Dropping null values
-    val filteredDF = relevantDF.filter(relevantDF.columns.map(c => col(c) =!= "null").reduce(_ and _))
-    filteredDF
+    val filteredDF = relevantDF.filter(relevantDF.columns.map(c => col(c) =!= "null").reduce(_ and _)).
+      filter(_.getAs[String]("links").split("\\|").length > 5).
+      filter(_.getAs[String]("positions").split("\\|").length > 5)
+
+    val patchDF = if (airport.contains("DEN")) filteredDF.filter(_.getAs[String]("links").matches(";10\\d\\d\\d|"))
+    else filteredDF
+
+    patchDF
   }
 
   /** Extract necessary features and add as columns. */
@@ -62,6 +101,29 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
   private def findCarrier(inputDF: DataFrame): DataFrame = {
     val toStringUDF = udf((a: Seq[String]) => a.mkString(""))
     inputDF.withColumn("carrier", toStringUDF(split(inputDF.col("callsign"), "\\d")))
+  }
+
+  private def findRealExit(inputDF: DataFrame, linkDF: DataFrame): DataFrame = {
+    val exitLinkArr = linkDF.filter("isExit=='1'").collect
+
+    def testExit(links: String) = {
+      val isExit = (exitLinkArr: Array[Row], link: String) => {
+        val linkID = link.split(";")(3)
+        exitLinkArr.find(row => row.getAs[String]("LinkID") == linkID) match {
+          case Some(row: Row) => row.getAs[String]("LinkID")
+          case None           => "none"
+        }
+      }
+      links.split("\\|").drop(1).find(link => !isExit(exitLinkArr, link).matches("none")) match {
+        case Some(s) => isExit(exitLinkArr, s)
+        case None    => "none"
+      }
+    }
+    val exitUDF = udf(testExit(_: String))
+    val exitCol = exitUDF.apply(inputDF.col("links"))
+    val withExitDF = inputDF.withColumn("exit", exitCol).filter("exit!='none'")
+
+    withExitDF
   }
 
   /**
@@ -242,7 +304,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
     val decelUDF = udf(calcSpeed(_: String, 0))
     val decelCol = decelUDF.apply(inputDF.col("positions"))
 
-    val withSpeedDF = inputDF.withColumn("decel", decelCol.cast(DoubleType))
+    val withSpeedDF = inputDF.withColumn("decel", decelCol.cast(DoubleType)).filter("decel<=-0.5")
 
     withSpeedDF
   }
@@ -289,7 +351,7 @@ class Preprocessor(inputData: DataFrame, inputConfig: DataFrame, airportCode: St
    * Computes distance between two (lat,long) points. This implementation is based on Thaddeus Vincenty's formulas
    * for calculating distances on an ellipsoid: http://en.wikipedia.org/wiki/Vincenty%27s_formulae
    */
-  private def getDistance(lat1: Double, long1: Double, lat2: Double, long2: Double): Double = {
+  def getDistance(lat1: Double, long1: Double, lat2: Double, long2: Double): Double = {
     val a = 6378137d // length of semi-major axis of the ellipsoid (radius at equator) 
     val b = 6356752.314245 // length of semi-minor axis of the ellipsoid (radius at the poles)
     val f = 1 / 298.257223563 // 	flattening of the ellipsoid

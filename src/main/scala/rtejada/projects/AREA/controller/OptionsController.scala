@@ -4,7 +4,7 @@
 package rtejada.projects.AREA.controller
 
 import scalafx.Includes._
-import rtejada.projects.AREA.model.MLModel
+import rtejada.projects.AREA.model.AREAModel
 import rtejada.projects.AREA.view.OptionsView
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -35,37 +35,82 @@ import scalafx.scene.Scene
 import scalafx.scene.input.MouseEvent
 import javafx.animation.{ Timeline, KeyFrame }
 import javafx.util.Duration
+import scalafx.scene.canvas.Canvas
+import scalafx.scene.paint.Color
 
 /** Controller implementation */
-class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Double, stageH: Double) {
+class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Double, stageH: Double) {
   val model = mlModel
 
   /**
    * Creates a new stage with the corresponding airport diagram, providing
    *  functionality to fill out coordinate fields  by clicking on the map
    */
-  def onOpenDiagram(airportCode: String): Unit = {
-    val lcCode = airportCode match {
-      case "KPHX" => "phx"
-      case "KATL" => "atl"
-      case "KDEN" => "den"
-      case "KBWI" => "bwi"
-    }
+  def onOpenDiagram(airportCode: String, prediction: Option[String]): Unit = {
+
     val airportConfig = airportCode match {
-      case "KPHX" => ("phx", (-112.030832, 33.442311), (-111.990, 33.426286))
-      case "KATL" => ("atl", (-84.4491665, 33.651087), (-84.4041575, 33.61992152))
-      case "KDEN" => ("den", (-104.7283332, 39.897435), (-104.616671, 39.826925))
-      case "KBWI" => ("bwi", (-76.689681952, 39.1880947144), (-76.65158824, 39.1636909281))
+      case "KPHX" => ("phx", (-112.031132, 33.44411), (-111.9883, 33.42229))
+      case "KATL" => ("atl", (-84.4502665, 33.658), (-84.4033575, 33.619))
+      case "KDEN" => ("den", (-104.7311332, 39.899935), (-104.616471, 39.824725))
+      case "KBWI" => ("bwi", (-76.692, 39.1894), (-76.6503, 39.16275))
     }
     val startPoint = airportConfig._2
     val endPoint = airportConfig._3
     val scPane = new ScrollPane
     scPane.prefWidth = stageW * 0.8
     scPane.prefHeight = stageH * 0.8
+
+    val stack = new StackPane
+
     val airportImg = new ImageView {
-      image = new Image(this.getClass.getResourceAsStream("/img/" + lcCode + "_img.png"), stageW * 0.8, stageH * 0.8, true, true)
+      image = new Image(this.getClass.getResourceAsStream("/img/" + airportConfig._1 + "_map.png"), stageW * 0.8, stageH * 0.8, true, true)
     }
-    scPane.content = airportImg
+
+    val canvas = new Canvas(airportImg.getImage.getWidth, airportImg.getImage.getHeight)
+    canvas.setMouseTransparent(true)
+    val gc = canvas.graphicsContext2D
+
+    stack.children.addAll(airportImg, canvas)
+
+    prediction match {
+      case Some(predictedExit) => {
+        val loadedLinks = model.loadLinks(airportCode)
+        println("ALLEXITS")
+        loadedLinks._1.show(150)
+        val predictionInfo = loadedLinks._1.filter("LinkID == '$predictedExit'")
+        println("predictedExit: " + predictedExit)
+        predictionInfo.show
+
+        val srcLat = predictionInfo.head().getAs[String]("srcLatitude").toDouble
+        val srcLong = predictionInfo.head().getAs[String]("srcLongitude").toDouble
+        val dstLat = predictionInfo.head().getAs[String]("dstLatitude").toDouble
+        val dstLong = predictionInfo.head().getAs[String]("dstLongitude").toDouble
+
+        val drawSrcLat = Math.abs(srcLat - startPoint._2) *
+          airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+        val drawSrcLong = Math.abs(srcLong - startPoint._1) *
+          airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+        val drawDstLat = Math.abs(dstLat - startPoint._2) *
+          airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+        val drawDstLong = Math.abs(dstLong - startPoint._1) *
+          airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+
+        gc.lineWidth = 1
+        gc.setStroke(Color.Yellow)
+        gc.strokeOval(drawSrcLong, drawSrcLat, 4, 4)
+        gc.strokeOval(drawDstLong, drawDstLat, 4, 4)
+
+        gc.setStroke(Color.Gold)
+        gc.strokeText(predictedExit, (drawSrcLong + drawDstLong) / 2, (drawSrcLat + drawDstLat) / 2)
+
+        gc.lineWidth = 3
+        gc.setStroke(Color.Blue)
+        gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+      }
+      case _ => println("Diagram without prediction")
+    }
+
+    scPane.content = stack
     val imgScene = new Scene(scPane)
     val imgStage = new Stage
     val coordsTip = new Tooltip
@@ -199,7 +244,8 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
       val runID = file.getName.filter(_.isDigit)
       val forestRun = new ForestRun("output/features" + runID + ".json",
         "output/randomForest" + runID + ".txt",
-        "output/runInfo" + runID + ".json")
+        "output/runInfo" + runID + ".json",
+        "output/optimization" + runID + ".json")
       val resultsController: ResultsController = new ResultsController(model, forestRun, stageW, stageH)
       val resultsView: ResultsView = new ResultsView(resultsController, forestRun, stageW, stageH)
       resultsView.tab.id = runID
@@ -236,47 +282,51 @@ class OptionsController(mlModel: => MLModel, view: => OptionsView, stageW: Doubl
 
   /** Gathers the selected parameters and defers testing to MLModel*/
   def onTest(paramGrid: TilePane) {
-    if (!model.modelMap.isEmpty) {
-      view.analysisBox.singleTestModule.testLabel.text = "Predicting..."
-      view.analysisBox.singleTestModule.testButton.disable = true
-      view.analysisBox.singleTestModule.mapButton.disable = true
-      val testParamArray = model.modelMap.head._2._2.featureExtracted.dropRight(1).map(feat => {
-        if (feat.featureType == "categorical") {
-          (feat.featureName, feat.featureType,
-            view.analysisBox.singleTestModule.paramPane.children.toArray.
-            map(_.asInstanceOf[javafx.scene.layout.HBox]).
-            filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.ChoiceBox[String]]).
-            map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.ChoiceBox[String]]).
-            find(node => node.getId == feat.featureName + "selector").get.getValue)
-        } else
-          (feat.featureName, feat.featureType,
-            view.analysisBox.singleTestModule.paramPane.children.toArray.
-            map(_.asInstanceOf[javafx.scene.layout.HBox]).
-            filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
-            map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.TextField]).
-            find(node => node.getId == feat.featureName + "selector").get.getText)
-      })
+    model.optLoadedModel match {
+      case Some(loadedModel) => {
+        view.analysisBox.singleTestModule.testLabel.text = "Predicting..."
+        view.analysisBox.singleTestModule.testButton.disable = true
+        view.analysisBox.singleTestModule.mapButton.disable = true
 
-      val runFuture = Future { model.testSingleRecord(testParamArray) }
-      runFuture.onComplete {
-        case Success(prediction) => {
-          Platform.runLater {
-            view.analysisBox.singleTestModule.testButton.disable = false
-            view.analysisBox.singleTestModule.mapButton.disable = false
-            view.analysisBox.singleTestModule.testLabel.text = "Prediction: Exit " + prediction
+        val testParamArray = loadedModel._3.featureExtracted.dropRight(1).map(feat => {
+          if (feat.featureType == "categorical") {
+            (feat.featureName, feat.featureType,
+              view.analysisBox.singleTestModule.paramPane.children.toArray.
+              map(_.asInstanceOf[javafx.scene.layout.HBox]).
+              filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.ChoiceBox[String]]).
+              map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.ChoiceBox[String]]).
+              find(node => node.getId == feat.featureName + "selector").get.getValue)
+          } else
+            (feat.featureName, feat.featureType,
+              view.analysisBox.singleTestModule.paramPane.children.toArray.
+              map(_.asInstanceOf[javafx.scene.layout.HBox]).
+              filter(node => node.getChildren.get(1).isInstanceOf[javafx.scene.control.TextField]).
+              map(_.getChildren.get(1).asInstanceOf[javafx.scene.control.TextField]).
+              find(node => node.getId == feat.featureName + "selector").get.getText)
+        })
+        val runFuture = Future { model.testSingleRecord(testParamArray) }
+        runFuture.onComplete {
+          case Success(prediction) => {
+            Platform.runLater {
+              view.analysisBox.singleTestModule.testButton.disable = false
+              view.analysisBox.singleTestModule.mapButton.disable = false
+              view.analysisBox.singleTestModule.testLabel.text = "Prediction: Exit " + prediction
+              onOpenDiagram(loadedModel._1.filter(!_.isDigit).replace("model", ""), Some(prediction))
+            }
+          }
+          case Failure(e) => {
+            Platform.runLater {
+              view.analysisBox.singleTestModule.testButton.disable = false
+              view.analysisBox.singleTestModule.mapButton.disable = false
+              view.analysisBox.singleTestModule.testLabel.text = "testing failed"
+              e.printStackTrace
+            }
           }
         }
-        case Failure(e) => {
-          Platform.runLater {
-            view.analysisBox.singleTestModule.testButton.disable = false
-            view.analysisBox.singleTestModule.mapButton.disable = false
-            view.analysisBox.singleTestModule.testLabel.text = "testing failed"
-            e.printStackTrace
-          }
-        }
+
       }
-
-    } else println("model not loaded")
+      case _ => println("No model loaded")
+    }
   }
 
   /** Loads the selected model and provides controllers for testing single records */

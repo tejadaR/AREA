@@ -5,6 +5,8 @@ lazy val root = (project in file(".")).
   assemblyJarName in assembly := "AREA_2.0.jar",
   test in assembly := {}
   )
+  
+resolvers += Resolver.url("SparkPackages", url("https://dl.bintray.com/spark-packages/maven/"))
 
 libraryDependencies += "org.apache.spark" %% "spark-core" % "2.0.0" withSources() withJavadoc()
 libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.0.0" withSources() withJavadoc()
@@ -14,6 +16,9 @@ libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.1" % "provided"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.92-R10" withSources() withJavadoc()
 libraryDependencies += "net.liftweb" %% "lift-json" % "2.6+" withSources() withJavadoc()
+libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging-api" % "2.1.2" % "provided"
+libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2" % "provided"
+libraryDependencies += "org.codehaus.janino" % "janino" % "3.0.7"
 
 EclipseKeys.withSource := true
 EclipseKeys.withJavadoc := true

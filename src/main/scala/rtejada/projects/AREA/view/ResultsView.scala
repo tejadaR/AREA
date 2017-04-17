@@ -68,7 +68,12 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     val lblTestRecords = new Label("Testing Records: " + forestRun.getTestCount)
     val lblDuration = new Label("Run Duration: " + controller.getMinSecStr(forestRun.getDuration))
     val lblDate = new Label(forestRun.getDate)
-    detailsBox.children.addAll(lblAcc, lblTrainRecords, lblTestRecords, lblDuration, lblDate)
+    val optButton = new Button("Optimization") {
+      onAction = (ae: ActionEvent) => {
+        controller.onOptSelected(forestRun.getAirportCode)
+      }
+    }
+    detailsBox.children.addAll(lblAcc, lblTrainRecords, lblTestRecords, lblDuration, lblDate, optButton)
     detailsBox.spacing = h * 0.1
     detailsBox.prefWidth = w * 0.3
     detailsBox.styleClass.add("summary")

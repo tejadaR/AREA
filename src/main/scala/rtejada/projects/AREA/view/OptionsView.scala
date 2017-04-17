@@ -226,8 +226,13 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
     val mapButton = new Button("Diagram") {
       disable = true
       onAction = (ae: ActionEvent) => {
-        val airportCode = controller.model.modelMap.head._2._2.getAirportCode
-        controller.onOpenDiagram(airportCode)
+        controller.model.optLoadedModel match {
+          case Some(loadedModel) => {
+            val airportCode = loadedModel._1.filter(!_.isDigit)
+            controller.onOpenDiagram(airportCode, None)
+          }
+          case _ => println("No model loaded")
+        }
       }
     }
 

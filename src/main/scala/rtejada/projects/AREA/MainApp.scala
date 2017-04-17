@@ -7,7 +7,7 @@ import scalafx.Includes._
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.scene.Scene
-import rtejada.projects.AREA.model.MLModel
+import rtejada.projects.AREA.model.AREAModel
 import rtejada.projects.AREA.controller.OptionsController
 import scalafx.scene.paint.Color
 import scalafx.scene.control._
@@ -22,7 +22,7 @@ class MainApp extends JFXApp {
   val stageWidth = Screen.primary.bounds.width
   val stageHeight = Screen.primary.bounds.height
 
-  val mlModel: MLModel = new MLModel
+  val mlModel: AREAModel = new AREAModel
   
   //Constructor-injection
   val optionsController: OptionsController = new OptionsController(mlModel, optionsView, stageWidth, stageHeight)

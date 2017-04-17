@@ -8,7 +8,7 @@ import rtejada.projects.AREA.model.Preprocessor
 class PreprocessorSpec extends FlatSpec with SharedSetup {
   val testList = List("touchdownLong", "carrier", "hour", "day",
     "decel")
-
+  /*
   "A preprocessor" should "filter out departures" in {
     val pp = new Preprocessor(testData, testConfig, "KPHX", testList)
     val departureFound = pp.filteredDF.select("depAirport").collect().find(_.apply(0).toString.equals("KPHX"))
@@ -34,6 +34,6 @@ class PreprocessorSpec extends FlatSpec with SharedSetup {
     val nullFound = pp.finalDF.collect().find(_.anyNull)
 
     assert(nullFound == None)
-  }
+  }*/
 
 }
