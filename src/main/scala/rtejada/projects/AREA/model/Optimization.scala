@@ -8,14 +8,16 @@ import org.apache.spark.sql.types.DoubleType
 import java.util.Calendar
 import scala.collection.mutable.ArrayBuffer
 import rtejada.projects.AREA.utils.Interface
-import net.liftweb.json.DefaultFormats
+//import net.liftweb.json.DefaultFormats
 import net.liftweb.json._
+import net.liftweb.json.JsonDSL._
 
 class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFrame, verticesDF: DataFrame,
                    edgesDF: DataFrame, sizeDefDF: DataFrame, runTimeId: Long) extends Serializable {
   import spark.implicits._
   //INIT PARAMS
   val thresholdSpeed = 35 //meters per second
+  val taxiingSpeed = 11.83 //meters per second
   val rotSavings = Map("GA" -> 0.1848, "Small" -> 0.547556, "Medium" -> 3.518044,
     "Large" -> 8.110667, "Super" -> 11.17013) // $/second
   val ptCosts = Map("GA" -> 0.2215, "Small" -> 0.492222, "Medium" -> 3.1625278,
@@ -49,13 +51,15 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
 
   //EXECUTE AND OUTPUT
   val optimizedResults = optimize(predictionsDF, vArr, eArr)
+  Interface.output(optimizedResults, "optimization" + runTimeId + ".json")
 
   /** Executes optimization process: Prepares, adds paths and financials, and formats data */
-  private def optimize(inputDF: DataFrame, vertices: Array[Vertex], edges: Array[Edge]) {
+  private def optimize(inputDF: DataFrame, vertices: Array[Vertex], edges: Array[Edge]): String = {
     val preparedDF = prepare(inputDF, vertices, edges)
     val pathDetailsDF = addPathDetails(preparedDF).cache()
     val financialDF = addFinancials(pathDetailsDF)
     val readyResults = formatResults(financialDF)
+    readyResults
 
     /*financialDF.printSchema
     financialDF.drop("positions", "links").show(50, false)
@@ -69,45 +73,60 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
       format("com.databricks.spark.csv").
       option("header", "true").
       save("testout/results.csv")
+
     System.exit(0)*/
   }
 
   private def formatResults(inputDF: DataFrame) = {
     def avg(colName: String) = inputDF.select(mean(colName)).head().getAs[Double](0)
-    val summaryResults: List[SingleRes] = List(SingleRes("optROT", avg("optROT")),
-      SingleRes("optTT", avg("optTT")),
-      SingleRes("actualROT", avg("actualROT")),
-      SingleRes("actualTT", avg("actualTT")),
-      SingleRes("optPcost", avg("optPcost")),
-      SingleRes("optFuelCost", avg("optFuelCost")),
-      SingleRes("optCrewCost", avg("optCrewCost")),
-      SingleRes("optMaintCost", avg("optMaintCost")),
-      SingleRes("optAOCost", avg("optAOCost")),
-      SingleRes("optEnvCost", avg("optEnvCost")),
-      SingleRes("optOtherCost", avg("optOtherCost")),
-      SingleRes("actualPcost", avg("actualPcost")),
-      SingleRes("actualFuelCost", avg("actualFuelCost")),
-      SingleRes("actualCrewCost", avg("actualCrewCost")),
-      SingleRes("actualMaintCost", avg("actualMaintCost")),
-      SingleRes("actualAOCost", avg("actualAOCost")),
-      SingleRes("actualEnvCost", avg("actualEnvCost")),
-      SingleRes("actualOtherCost", avg("actualOtherCost")),
-      SingleRes("savings", avg("savings")))
-    val count = inputDF.count
-    val sampleCount = if (count < 25) count else 25
-    val sampleRows = inputDF.select("optROT", "optTT", "actualROT", "actualTT",
+    val count = inputDF.count.toDouble
+    val sampleCount = if (count < 25) count else 25D
+    val sampleRows = inputDF.select("aircraftType", "optROT", "optTT", "actualROT", "actualTT",
       "optPath", "actualPath", "slowV", "totalOptCost", "totalActualCost",
-      "savings").sample(false, 0, sampleCount / count).collect()
-    val resultStr = resultsJson(summaryResults, sampleRows)
-  }
+      "savings").sample(false, sampleCount / count).collect().toList
+    //sampleRows.printSchema()
+    //sampleRows.show(50, false)
 
-  case class SingleRes(name: String, value: Double)
-  case class SampleRes(optROT: Double, optTT: Double, actualROT: Double, actualTT: Double,
-                       optPath: Array[(String, Int, Double)], actualPath: Array[(String, Int, Double)],
-                       slowV: String, totalOptCost: Double, totalActualCost: Double, savings: Double)
+    val json =
+      ("optROT" -> avg("optROT")) ~
+        ("optTT" -> avg("optTT")) ~
+        ("actualROT" -> avg("actualROT")) ~
+        ("actualTT" -> avg("actualTT")) ~
+        ("optPcost" -> avg("optPcost")) ~
+        ("optFuelCost" -> avg("optFuelCost")) ~
+        ("optCrewCost" -> avg("optCrewCost")) ~
+        ("optMaintCost" -> avg("optMaintCost")) ~
+        ("optAOCost" -> avg("optAOCost")) ~
+        ("optEnvCost" -> avg("optEnvCost")) ~
+        ("optOtherCost" -> avg("optOtherCost")) ~
+        ("actualPcost" -> avg("actualPcost")) ~
+        ("actualFuelCost" -> avg("actualFuelCost")) ~
+        ("actualCrewCost" -> avg("actualCrewCost")) ~
+        ("actualMaintCost" -> avg("actualMaintCost")) ~
+        ("actualAOCost" -> avg("actualAOCost")) ~
+        ("actualEnvCost" -> avg("actualEnvCost")) ~
+        ("actualOtherCost" -> avg("actualOtherCost")) ~
+        ("savings" -> avg("savings")) ~ ("samples" -> sampleRows.map { sR =>
+          ("optROT" -> sR.getAs[Double]("optROT")) ~
+            ("optTT" -> sR.getAs[Double]("optTT")) ~
+            ("actualROT" -> sR.getAs[Double]("actualROT")) ~
+            ("actualTT" -> sR.getAs[Double]("actualTT")) ~
+            ("optPath" -> sR.getAs[Seq[Row]]("optPath").map { opR =>
+              ("linkID" -> opR.getAs[String](0)) ~
+                ("isExit" -> opR.getAs[Int](1)) ~
+                ("length" -> opR.getAs[Double](2))
+            }) ~
+            ("actualPath" -> sR.getAs[Seq[Row]]("actualPath").map { apR =>
+              ("linkID" -> apR.getAs[String](0)) ~
+                ("isExit" -> apR.getAs[Int](1)) ~
+                ("length" -> apR.getAs[Double](2))
+            }) ~
+            ("slowV" -> sR.getAs[String]("slowV")) ~
+            ("totalOptCost" -> sR.getAs[Double]("totalOptCost")) ~
+            ("totalActualCost" -> sR.getAs[Double]("totalActualCost"))
+        })
 
-  private def resultsJson(summaryResults: List[SingleRes], sampleRows: Array[Row]) = {
-
+    pretty(render(json))
   }
 
   /** Adds start and goal vertex */
@@ -316,7 +335,7 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
 
     if (!ttSeq.isEmpty) {
       val ttLength = ttSeq.map(_(2).asInstanceOf[Double]).reduceLeft(_ + _)
-      (ttLength * 0.3048) / 11.83 // 11.83 m/s taxiing speed
+      (ttLength * 0.3048) / taxiingSpeed // 11.83 m/s taxiing speed
     } else -1.0
   }
 
@@ -373,7 +392,7 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
   /** 'Actual' Taxi-time(TT) in seconds */
   private def findActualTT(edgePath: Seq[Row]) = if (edgePath.size > 1) {
     val ttLength = edgePath.drop(1).map(_(2).asInstanceOf[Double]).reduceLeft(_ + _)
-    (ttLength * 0.3048) / 11.83 // 11.83 m/s taxiing speed
+    (ttLength * 0.3048) / taxiingSpeed // 11.83 m/s taxiing speed
   } else -1.0
 
   /** Adds financial costs and saving values related to optimal v.s. actual */
@@ -413,7 +432,7 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
 
     val actualFuelCost = actualPcost.withColumn("actualFuelCost", (actualPcost.col("actualROT") + actualPcost.col("actualTT")) * fuelCost)
     val actualCrewCost = actualFuelCost.withColumn("actualCrewCost", (actualFuelCost.col("actualROT") + actualFuelCost.col("actualTT")) * crewCost)
-    val actualMaintCost = actualCrewCost.withColumn("actualMaintCost", (actualCrewCost.col("actualROT") + actualCrewCost.col("optTT")) * maintCost)
+    val actualMaintCost = actualCrewCost.withColumn("actualMaintCost", (actualCrewCost.col("actualROT") + actualCrewCost.col("actualTT")) * maintCost)
     val actualAOCost = actualMaintCost.withColumn("actualAOCost", (actualMaintCost.col("actualROT") + actualMaintCost.col("actualTT")) * acOwnershipCost)
     val actualEnvCost = actualAOCost.withColumn("actualEnvCost", (actualAOCost.col("actualROT") + actualAOCost.col("actualTT")) * envCost)
     val actualOtherCost = actualEnvCost.withColumn("actualOtherCost", (actualEnvCost.col("actualROT") + actualEnvCost.col("actualTT")) * otherCost)

@@ -60,7 +60,7 @@ class ForestHandler(data: DataFrame, view: OptionsView, treeNum: Int, depthNum: 
 
   Platform.runLater {
     view.analysisBox.statusLabel.text = "Training Forest..."
-    view.analysisBox.runPb.progress = 0.4
+    view.analysisBox.runPb.progress = 0.35
   }
 
   //*************
@@ -107,7 +107,7 @@ class ForestHandler(data: DataFrame, view: OptionsView, treeNum: Int, depthNum: 
 
     Platform.runLater {
       view.analysisBox.statusLabel.text = "Testing Predictions..."
-      view.analysisBox.runPb.progress = 0.9
+      view.analysisBox.runPb.progress = 0.55
     }
 
     val evaluator = new MulticlassClassificationEvaluator()

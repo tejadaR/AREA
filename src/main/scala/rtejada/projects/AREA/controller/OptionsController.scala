@@ -173,6 +173,7 @@ class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Dou
       FileUtils.deleteQuietly(new File("output/features" + id + ".json"))
       FileUtils.deleteQuietly(new File("output/randomForest" + id + ".txt"))
       FileUtils.deleteQuietly(new File("output/runInfo" + id + ".json"))
+      FileUtils.deleteQuietly(new File("output/optimization" + id + ".json"))
       deletDir(new File("trained/" + airportCode + "model" + id))
     }
     runFuture.onComplete {
@@ -230,13 +231,20 @@ class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Dou
         val runID = file.getName.filter(_.isDigit)
         if (file.getName.contains("runInfo")) {
           new File("output/features" + runID + ".json").exists &&
-            new File("output/randomForest" + runID + ".txt").exists
+            new File("output/randomForest" + runID + ".txt").exists &&
+            new File("output/optimization" + runID + ".json").exists
         } else if (file.getName.contains("features")) {
           new File("output/runInfo" + runID + ".json").exists &&
-            new File("output/randomForest" + runID + ".txt").exists
+            new File("output/randomForest" + runID + ".txt").exists &&
+            new File("output/optimization" + runID + ".json").exists
+        } else if (file.getName.contains("randomForest")) {
+          new File("output/features" + runID + ".json").exists &&
+            new File("output/runInfo" + runID + ".json").exists &&
+            new File("output/optimization" + runID + ".json").exists
         } else {
           new File("output/features" + runID + ".json").exists &&
-            new File("output/runInfo" + runID + ".json").exists
+            new File("output/runInfo" + runID + ".json").exists &&
+            new File("output/randomForest" + runID + ".txt").exists
         }
       }
     }

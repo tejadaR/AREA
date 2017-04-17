@@ -50,16 +50,16 @@ class AREAModel {
   def loadLinks(airportCode: String) = {
     val dataFrames = Interface.getLinks(airportCode, spark)
     val vertexDF = dataFrames._1.select("nodeName", "latitude", "longitude").withColumnRenamed("nodeName", "id")
-    val edgeDF = dataFrames._2.select("LinkID", "LinkName", "NodeNameFrom", "NodeNameTo").
+    val edgeDF = dataFrames._2.select("LinkID", "LinkName", "NodeNameFrom", "Length", "NodeNameTo").
       withColumnRenamed("NodeNameFrom", "src").withColumnRenamed("NodeNameTo", "dst")
     val graph = GraphFrame(vertexDF, edgeDF)
     graph.vertices.createOrReplaceTempView("Vertices")
     graph.edges.createOrReplaceTempView("Edges")
-    val withSrcCoords = spark.sql("SELECT LinkID, LinkName, src, dst," +
+    val withSrcCoords = spark.sql("SELECT LinkID, LinkName, src, dst, Length," +
       "latitude AS srcLatitude, longitude AS srcLongitude " +
       "FROM Edges INNER JOIN Vertices ON src = id")
     withSrcCoords.createOrReplaceTempView("Edges")
-    val withSrcAndDst = spark.sql("SELECT LinkID, LinkName, src, dst, srcLatitude, srcLongitude," +
+    val withSrcAndDst = spark.sql("SELECT LinkID, LinkName, src, dst, Length, srcLatitude, srcLongitude," +
       "latitude AS dstLatitude, longitude AS dstLongitude " +
       "FROM Edges INNER JOIN Vertices ON dst = id")
     (withSrcAndDst, graph)
@@ -119,7 +119,7 @@ class AREAModel {
     val processedDF = preProcessor.finalDF.cache()
     Platform.runLater {
       view.analysisBox.statusLabel.text = "Generating features..."
-      view.analysisBox.runPb.progress = 0.3
+      view.analysisBox.runPb.progress = 0.25
     }
 
     val forestHandler = new ForestHandler(processedDF, view, treeNum, depthNum)
@@ -129,6 +129,10 @@ class AREAModel {
     val testCount = forestHandler.testingData.count
 
     val sizeDefDF = Interface.getSizeDefinition(spark)
+    Platform.runLater {
+      view.analysisBox.statusLabel.text = "Calculating Optimization..."
+      view.analysisBox.runPb.progress = 0.85
+    }
     val optimization = new Optimization(spark, preProcessor, predictions,
       preProcessor.verticesDF, preProcessor.exitEdgesDF, sizeDefDF, forestHandler.runTimeId)
 

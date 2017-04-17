@@ -30,6 +30,7 @@ import scalafx.scene.image.Image
 import org.graphframes._
 import org.apache.spark.sql._
 import scalafx.scene.input.KeyEvent
+import scala.util.Random
 
 class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Double, stageH: Double) {
   val model = mlModel
@@ -56,6 +57,8 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
     val gc = canvas.graphicsContext2D
 
     stack.children.addAll(airportImg, canvas)
+
+    val optSamples = forestRun.optExtracted.samples
 
     //val samplePath = mlModel.currentPath.getAs[Seq[Row]]("optimalPath")
     //samplePath.foreach(p => {
@@ -103,7 +106,10 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
       }
 
     })*/
-
+    val r = Random
+    val randomSample = optSamples(r.nextInt(25))
+    val optPath = randomSample.optPath
+    val actualPath = randomSample.actualPath
     linksDF.collect.foreach(row => {
       val runwayPattern = """[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?\_[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?""".r.unanchored
       val exitPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
@@ -124,24 +130,36 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
         airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
 
       val linkName = row.getAs[String]("LinkName")
+      val linkID = row.getAs[String]("LinkID")
 
-      gc.lineWidth = 1
-      gc.setStroke(Color.Yellow)
-      graph.vertices.collect().foreach(row => {
-        val drawLat = Math.abs(row.apply(1).toString().toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-        val drawLong = Math.abs(row.apply(2).toString().toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-        gc.strokeOval(drawLong, drawLat, 5, 3)
-      })
+      gc.lineWidth = 2
+      gc.setStroke(Color.Gray)
+      gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
 
-      linkName match {
+      if (optPath.exists(l => l.linkID == linkID)) {
+        gc.lineWidth = 3
+        gc.setStroke(Color.Blue)
+        gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+        gc.setStroke(Color.rgb(0, 50, 255))
+        gc.lineWidth = 1.3
+      }
+      if (actualPath.exists(l => l.linkID == linkID)) {
+        gc.lineWidth = 3
+        gc.setStroke(Color.Red)
+        gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+        gc.setStroke(Color.rgb(0, 50, 255))
+        gc.lineWidth = 1.3
+      }
+
+      /*linkName match {
         case runwayPattern(_*) => {
           gc.lineWidth = 3
-          gc.setStroke(Color.OrangeRed)
+          gc.setStroke(Color.Gray)
           gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
         }
         case exitPattern(_*) => {
           gc.lineWidth = 3
-          gc.setStroke(Color.Blue)
+          gc.setStroke(Color.Gray)
           gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
           gc.setStroke(Color.rgb(0, 50, 255))
           gc.lineWidth = 1.3
@@ -156,13 +174,20 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
         }
         case _ => {
           gc.lineWidth = 3
-          gc.setStroke(Color.OrangeRed)
+          gc.setStroke(Color.Gray)
           gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
         }
-      }
-      gc.setStroke(Color.DarkBlue)
-      gc.lineWidth = 1
-      gc.strokeText(row.getAs[String]("LinkID"), (drawSrcLong + drawDstLong) / 2, (drawSrcLat + drawDstLat) / 2)
+      }*/
+      //gc.setStroke(Color.DarkBlue)
+      //gc.lineWidth = 1
+      //gc.strokeText(row.getAs[String]("LinkID"), (drawSrcLong + drawDstLong) / 2, (drawSrcLat + drawDstLat) / 2)
+    })
+    gc.lineWidth = 3
+    graph.vertices.collect().foreach(row => {
+      if (row.getAs[String]("id") == randomSample.slowV) gc.setStroke(Color.White) else gc.setStroke(Color.Yellow)
+      val drawLat = Math.abs(row.apply(1).toString().toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+      val drawLong = Math.abs(row.apply(2).toString().toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+      gc.strokeOval(drawLong, drawLat, 5, 3)
     })
 
     scPane.content = stack

@@ -15,8 +15,10 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String, optFil
   //Loading files
   val featureJson = parse(Source.fromFile(featureFile).mkString)
   val runJson = parse(Source.fromFile(runFile).mkString)
+  val optJson = parse(Source.fromFile(optFile).mkString)
   val featureExtracted = featureJson.extract[Array[Feature]]
   val runExtracted = runJson.extract[RunData]
+  val optExtracted = optJson.extract[OptResults]
 
   //Extracting methods for 'features' files
   def getFeatureName(index: Int) = featureExtracted(index).featureName
@@ -40,10 +42,6 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String, optFil
   val forestImportances = lineArray.last.split(";").map(_.toDouble)
   val maDepth = getMaxDepth(importanceLine, lineArray)
   val maxDepth = getMaxDepth(importanceLine, lineArray)
-
-  val optLineArr = Source.fromFile(optFile).getLines().toIndexedSeq.toArray
-  val totalsLine = getOptCostLine(optLineArr)
-  //val details = new OptDetails(optLineArr.slice(begin, lineArray.length - 1))
 
   val forest = assembleTrees(importanceLine, lineArray)
   def getForestNumTrees: Int = forest.length
@@ -223,7 +221,17 @@ class ForestRun(featureFile: String, forestFile: String, runFile: String, optFil
 
 case class Feature(featureName: String, featureType: String, categories: Option[Array[String]])
 
-case class OptDetails(samples: Array[(String, Array[String], Array[String], Double, Double)], avgOptCost: Double, avgActualCost: Double)
+case class OptResults(optROT: Double, optTT: Double, actualROT: Double, actualTT: Double, optPcost: Double,
+                      optFuelCost: Double, optCrewCost: Double, optMaintCost: Double, optAOCost: Double,
+                      optEnvCost: Double, optOtherCost: Double, actualPcost: Double, actualFuelCost: Double,
+                      actualCrewCost: Double, actualMaintCost: Double, actualAOCost: Double, actualEnvCost: Double,
+                      actualOtherCost: Double, savings: Double, samples: Array[SampleOpt])
+
+case class SampleOpt(optROT: Double, optTT: Double, actualROT: Double, actualTT: Double,
+                     optPath: Array[LinkInPath], actualPath: Array[LinkInPath],
+                     slowV: String, totalOptCost: Double, totalActualCost: Double)
+
+case class LinkInPath(linkID: String, isExit: Int, length: Double)
 
 case class RunData(airportCode: String, accuracy: Double, numRunways: Integer,
                    numExits: Integer, trainCount: Integer, testCount: Integer, runDuration: Integer, date: String)
