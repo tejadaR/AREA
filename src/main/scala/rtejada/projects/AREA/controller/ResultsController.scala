@@ -35,7 +35,8 @@ import scala.util.Random
 class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Double, stageH: Double) {
   val model = mlModel
 
-  def onOptSelected(airportCode: String) = {
+  def onOptSelected(airportCode: String): Unit = {
+    var sampleNum = 0
     val airportConfig = airportCode match {
       case "KPHX" => ("phx", (-112.031132, 33.44411), (-111.9883, 33.42229))
       case "KATL" => ("atl", (-84.4502665, 33.658), (-84.4033575, 33.619))
@@ -60,60 +61,16 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
 
     val optSamples = forestRun.optExtracted.samples
 
-    //val samplePath = mlModel.currentPath.getAs[Seq[Row]]("optimalPath")
-    //samplePath.foreach(p => {
-    //  println("0: " + p.getAs[String](0) + ", 1: " + p.getAs[Int](1))
-    //})
     val linksDF = mlModel.loadLinks(airportCode)._1
     val graph = mlModel.loadLinks(airportCode)._2
     gc.lineWidth = 3
-    /*
-    linksDF.collect.foreach(row => {
-      val id = row.getAs[String]("LinkID")
-      gc.setStroke(Color.Blue)
 
-      if (samplePath.exists(p => p.getAs[String](0) == id && p.getAs[Int](1) == 0)) {
-        gc.setStroke(Color.OrangeRed)
-        val srcLat = row.getAs[String]("srcLatitude").toDouble
-        val srcLong = row.getAs[String]("srcLongitude").toDouble
-        val dstLat = row.getAs[String]("dstLatitude").toDouble
-        val dstLong = row.getAs[String]("dstLongitude").toDouble
-        val drawSrcLat = Math.abs(srcLat - startPoint._2) *
-          airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-        val drawSrcLong = Math.abs(srcLong - startPoint._1) *
-          airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-        val drawDstLat = Math.abs(dstLat - startPoint._2) *
-          airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-        val drawDstLong = Math.abs(dstLong - startPoint._1) *
-          airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-
-        gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-      } else if (samplePath.exists(p => p.getAs[String](0) == id && p.getAs[Int](1) == 1)) {
-        val srcLat = row.getAs[String]("srcLatitude").toDouble
-        val srcLong = row.getAs[String]("srcLongitude").toDouble
-        val dstLat = row.getAs[String]("dstLatitude").toDouble
-        val dstLong = row.getAs[String]("dstLongitude").toDouble
-        val drawSrcLat = Math.abs(srcLat - startPoint._2) *
-          airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-        val drawSrcLong = Math.abs(srcLong - startPoint._1) *
-          airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-        val drawDstLat = Math.abs(dstLat - startPoint._2) *
-          airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-        val drawDstLong = Math.abs(dstLong - startPoint._1) *
-          airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-
-        gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-      }
-
-    })*/
-    val r = Random
-    val randomSample = optSamples(r.nextInt(25))
-    val optPath = randomSample.optPath
-    val actualPath = randomSample.actualPath
+    val sample = optSamples(sampleNum)
+    val optPath = sample.optPath
+    val actualPath = sample.actualPath
     linksDF.collect.foreach(row => {
       val runwayPattern = """[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?\_[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?""".r.unanchored
       val exitPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
-      gc.setStroke(Color.OrangeRed)
 
       val srcLat = row.getAs[String]("srcLatitude").toDouble
       val srcLong = row.getAs[String]("srcLongitude").toDouble
@@ -132,63 +89,35 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
       val linkName = row.getAs[String]("LinkName")
       val linkID = row.getAs[String]("LinkID")
 
+      linkName match {
+        case runwayPattern(_*) => gc.setStroke(Color.Gray)
+        case exitPattern(_*)   => gc.setStroke(Color.Green)
+        case _                 => gc.setStroke(Color.Gray)
+      }
       gc.lineWidth = 2
-      gc.setStroke(Color.Gray)
       gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
 
       if (optPath.exists(l => l.linkID == linkID)) {
-        gc.lineWidth = 3
+        gc.lineWidth = 6.2
         gc.setStroke(Color.Blue)
         gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-        gc.setStroke(Color.rgb(0, 50, 255))
-        gc.lineWidth = 1.3
       }
       if (actualPath.exists(l => l.linkID == linkID)) {
-        gc.lineWidth = 3
-        gc.setStroke(Color.Red)
+        gc.lineWidth = 4
+        gc.setStroke(Color.Tomato)
         gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-        gc.setStroke(Color.rgb(0, 50, 255))
-        gc.lineWidth = 1.3
       }
-
-      /*linkName match {
-        case runwayPattern(_*) => {
-          gc.lineWidth = 3
-          gc.setStroke(Color.Gray)
-          gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-        }
-        case exitPattern(_*) => {
-          gc.lineWidth = 3
-          gc.setStroke(Color.Gray)
-          gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-          gc.setStroke(Color.rgb(0, 50, 255))
-          gc.lineWidth = 1.3
-          val drawLat = if (drawSrcLat <= drawDstLat) {
-            if (drawSrcLong <= drawDstLong) ((drawSrcLat + drawDstLat) / 2) + (Math.abs(drawSrcLat - drawDstLat) / 3)
-            else ((drawSrcLat + drawDstLat) / 2) - (Math.abs(drawSrcLat - drawDstLat) / 3)
-          } else {
-            if (drawSrcLong <= drawDstLong) ((drawSrcLat + drawDstLat) / 2) - (Math.abs(drawSrcLat - drawDstLat) / 3)
-            else ((drawSrcLat + drawDstLat) / 2) + (Math.abs(drawSrcLat - drawDstLat) / 3)
-          }
-          gc.strokeText(row.getAs[String]("LinkID"), (drawSrcLong + drawDstLong) / 2, drawLat)
-        }
-        case _ => {
-          gc.lineWidth = 3
-          gc.setStroke(Color.Gray)
-          gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-        }
-      }*/
-      //gc.setStroke(Color.DarkBlue)
-      //gc.lineWidth = 1
-      //gc.strokeText(row.getAs[String]("LinkID"), (drawSrcLong + drawDstLong) / 2, (drawSrcLat + drawDstLat) / 2)
     })
     gc.lineWidth = 3
     graph.vertices.collect().foreach(row => {
-      if (row.getAs[String]("id") == randomSample.slowV) gc.setStroke(Color.White) else gc.setStroke(Color.Yellow)
-      val drawLat = Math.abs(row.apply(1).toString().toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-      val drawLong = Math.abs(row.apply(2).toString().toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+      if (row.getAs[String]("nodeID") == sample.slowV) gc.setStroke(Color.Lime) else gc.setStroke(Color.Gainsboro)
+      val drawLat = Math.abs(row.getAs[String]("latitude").toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+      val drawLong = Math.abs(row.getAs[String]("longitude").toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
       gc.strokeOval(drawLong, drawLat, 5, 3)
     })
+    gc.lineWidth = 1
+    gc.setStroke(Color.Black)
+    gc.strokeText("Sample number: " + sampleNum, 0, 50D)
 
     scPane.content = stack
     val imgScene = new Scene(scPane)
@@ -206,67 +135,142 @@ class ResultsController(mlModel: => AREAModel, forestRun: ForestRun, stageW: Dou
         event
       }
     }
-    /*
-    val adjustWithKey: (KeyEvent) => KeyEvent = { event: KeyEvent =>
+
+    val changeSampleEvent: (KeyEvent) => KeyEvent = { event: KeyEvent =>
       {
         event.text match {
-          case "y" => startPoint = (startPoint._1, startPoint._2 + 0.0001)
-          case "u" => startPoint = (startPoint._1, startPoint._2 - 0.0001)
-          case "i" => startPoint = (startPoint._1 - 0.0001, startPoint._2)
-          case "o" => startPoint = (startPoint._1 + 0.0001, startPoint._2)
-          case "h" => endPoint = (endPoint._1, endPoint._2 + 0.0001)
-          case "j" => endPoint = (endPoint._1, endPoint._2 - 0.0001)
-          case "k" => endPoint = (endPoint._1 - 0.0001, endPoint._2)
-          case "l" => endPoint = (endPoint._1 + 0.0001, endPoint._2)
-          case _   =>
-        }
-        println("start: " + "(" + startPoint._1 + "," + startPoint._2 + ")")
-        println("end: " + "(" + endPoint._1 + "," + endPoint._2 + ")")
-        println()
-        gc.clearRect(0, 0, gc.getCanvas.getWidth, gc.getCanvas.getHeight)
-        linksDF.collect.foreach(row => {
-          val runwayPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+\_[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
-          val exitFirstPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
-          gc.setStroke(Color.OrangeRed)
+          case "," => {
+            if (sampleNum > 0)
+              sampleNum = sampleNum - 1
+            else
+              sampleNum = optSamples.size - 1
+            gc.clearRect(0, 0, canvas.getWidth, canvas.getHeight)
+            val sample = optSamples(sampleNum)
+            val optPath = sample.optPath
+            val actualPath = sample.actualPath
+            linksDF.collect.foreach(row => {
+              val runwayPattern = """[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?\_[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?""".r.unanchored
+              val exitPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
+              gc.setStroke(Color.OrangeRed)
 
-          val srcLat = row.getAs[String]("srcLatitude").toDouble
-          val srcLong = row.getAs[String]("srcLongitude").toDouble
-          val dstLat = row.getAs[String]("dstLatitude").toDouble
-          val dstLong = row.getAs[String]("dstLongitude").toDouble
+              val srcLat = row.getAs[String]("srcLatitude").toDouble
+              val srcLong = row.getAs[String]("srcLongitude").toDouble
+              val dstLat = row.getAs[String]("dstLatitude").toDouble
+              val dstLong = row.getAs[String]("dstLongitude").toDouble
 
-          val drawSrcLat = Math.abs(srcLat - startPoint._2) *
-            airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-          val drawSrcLong = Math.abs(srcLong - startPoint._1) *
-            airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-          val drawDstLat = Math.abs(dstLat - startPoint._2) *
-            airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-          val drawDstLong = Math.abs(dstLong - startPoint._1) *
-            airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+              val drawSrcLat = Math.abs(srcLat - startPoint._2) *
+                airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+              val drawSrcLong = Math.abs(srcLong - startPoint._1) *
+                airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+              val drawDstLat = Math.abs(dstLat - startPoint._2) *
+                airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+              val drawDstLong = Math.abs(dstLong - startPoint._1) *
+                airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
 
-          val linkName = row.getAs[String]("LinkName")
+              val linkName = row.getAs[String]("LinkName")
+              val linkID = row.getAs[String]("LinkID")
 
-          gc.lineWidth = 3
-          linkName match {
-            case runwayPattern(_*)    => gc.setStroke(Color.OrangeRed)
-            case exitFirstPattern(_*) => gc.setStroke(Color.Blue)
-            case _                    => gc.setStroke(Color.OrangeRed)
+              linkName match {
+                case runwayPattern(_*) => gc.setStroke(Color.Gray)
+                case exitPattern(_*)   => gc.setStroke(Color.Green)
+                case _                 => gc.setStroke(Color.Gray)
+              }
+              gc.lineWidth = 2
+              gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+
+              if (optPath.exists(l => l.linkID == linkID)) {
+                gc.lineWidth = 6.2
+                gc.setStroke(Color.Blue)
+                gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+              }
+              if (actualPath.exists(l => l.linkID == linkID)) {
+                gc.lineWidth = 4
+                gc.setStroke(Color.Tomato)
+                gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+              }
+            })
+            gc.lineWidth = 3
+            graph.vertices.collect().foreach(row => {
+              if (row.getAs[String]("nodeID") == sample.slowV) gc.setStroke(Color.Lime) else gc.setStroke(Color.Gainsboro)
+              val drawLat = Math.abs(row.getAs[String]("latitude").toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+              val drawLong = Math.abs(row.getAs[String]("longitude").toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+              gc.strokeOval(drawLong, drawLat, 5, 3)
+            })
+            gc.lineWidth = 1
+            gc.setStroke(Color.Black)
+            gc.strokeText("Sample number: " + sampleNum, 0, 50D)
+
           }
-          gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
-        })
-        gc.lineWidth = 2
-        gc.setStroke(Color.Yellow)
+          case "." => {
+            if (sampleNum < optSamples.size - 1)
+              sampleNum = sampleNum + 1
+            else
+              sampleNum = 0
 
-        graph.vertices.collect().foreach(row => {
-          val drawLat = Math.abs(row.apply(1).toString().toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
-          val drawLong = Math.abs(row.apply(2).toString().toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
-          gc.strokeOval(drawLong, drawLat, 5, 3)
-        })
+            gc.clearRect(0, 0, canvas.getWidth, canvas.getHeight)
+            val sample = optSamples(sampleNum)
+            val optPath = sample.optPath
+            val actualPath = sample.actualPath
+            linksDF.collect.foreach(row => {
+              val runwayPattern = """[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?\_[0-9]+\D?\/[0-9]+\D(\D|\.)?\D?\D?[0-9]+?\D?""".r.unanchored
+              val exitPattern = """[0-9]+\D?\/[0-9]+\D?(\.|\D)\D?\D?[0-9]+""".r.unanchored
+              gc.setStroke(Color.OrangeRed)
 
+              val srcLat = row.getAs[String]("srcLatitude").toDouble
+              val srcLong = row.getAs[String]("srcLongitude").toDouble
+              val dstLat = row.getAs[String]("dstLatitude").toDouble
+              val dstLong = row.getAs[String]("dstLongitude").toDouble
+
+              val drawSrcLat = Math.abs(srcLat - startPoint._2) *
+                airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+              val drawSrcLong = Math.abs(srcLong - startPoint._1) *
+                airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+              val drawDstLat = Math.abs(dstLat - startPoint._2) *
+                airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+              val drawDstLong = Math.abs(dstLong - startPoint._1) *
+                airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+
+              val linkName = row.getAs[String]("LinkName")
+              val linkID = row.getAs[String]("LinkID")
+
+              linkName match {
+                case runwayPattern(_*) => gc.setStroke(Color.Gray)
+                case exitPattern(_*)   => gc.setStroke(Color.Green)
+                case _                 => gc.setStroke(Color.Gray)
+              }
+              gc.lineWidth = 2
+              gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+
+              if (optPath.exists(l => l.linkID == linkID)) {
+                gc.lineWidth = 6.2
+                gc.setStroke(Color.Blue)
+                gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+              }
+              if (actualPath.exists(l => l.linkID == linkID)) {
+                gc.lineWidth = 4
+                gc.setStroke(Color.Tomato)
+                gc.strokeLine(drawSrcLong, drawSrcLat, drawDstLong, drawDstLat)
+              }
+            })
+            gc.lineWidth = 3
+            graph.vertices.collect().foreach(row => {
+              if (row.getAs[String]("nodeID") == sample.slowV) gc.setStroke(Color.Lime) else gc.setStroke(Color.Gainsboro)
+              val drawLat = Math.abs(row.getAs[String]("latitude").toDouble - startPoint._2) * airportImg.getImage.getHeight / Math.abs(endPoint._2 - startPoint._2)
+              val drawLong = Math.abs(row.getAs[String]("longitude").toDouble - startPoint._1) * airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
+              gc.strokeOval(drawLong, drawLat, 5, 3)
+            })
+            gc.lineWidth = 1
+            gc.setStroke(Color.Black)
+            gc.strokeText("Sample number: " + sampleNum, 0, 50D)
+          }
+          case _ =>
+        }
         event
       }
-    }*/
+    }
+
     airportImg.setOnMouseMoved(moveEvent)
-    //imgScene.setOnKeyPressed(keyE)
+    imgScene.setOnKeyPressed(changeSampleEvent)
     imgStage.scene = imgScene
     imgStage.onCloseRequest = handle { imgStage.close() }
     imgStage.showAndWait

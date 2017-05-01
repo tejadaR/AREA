@@ -69,15 +69,22 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     val lblTestRecords = new Label("Testing Records: " + forestRun.getTestCount)
     val lblDuration = new Label("Run Duration: " + controller.getMinSecStr(forestRun.getDuration))
     val lblDate = new Label(forestRun.getDate)
-    val lblRunwaySavings = new Label("Runway savings: " +
-      BigDecimal(forestRun.optExtracted.savings).setScale(2, BigDecimal.RoundingMode.HALF_UP))
+    val lblOptRot = new Label("Optimal ROT: " +
+      BigDecimal(forestRun.optExtracted.optROT).setScale(2, BigDecimal.RoundingMode.HALF_UP))
+    val lblactualRot = new Label("Actual ROT: " +
+      BigDecimal(forestRun.optExtracted.actualROT).setScale(2, BigDecimal.RoundingMode.HALF_UP))
+    val lblOptTT = new Label("Optimal TT: " +
+      BigDecimal(forestRun.optExtracted.optTT).setScale(2, BigDecimal.RoundingMode.HALF_UP))
+    val lblActualTT = new Label("Actual TT: " +
+      BigDecimal(forestRun.optExtracted.actualTT).setScale(2, BigDecimal.RoundingMode.HALF_UP))
     val optButton = new Button("Optimization") {
       onAction = (ae: ActionEvent) => {
         controller.onOptSelected(forestRun.getAirportCode)
       }
     }
-    detailsBox.children.addAll(lblAcc, lblTrainRecords, lblTestRecords, lblDuration, lblDate, lblRunwaySavings, optButton)
-    detailsBox.spacing = h * 0.1
+    detailsBox.children.addAll(lblAcc, lblTrainRecords, lblTestRecords, lblDuration, lblDate,
+      lblOptRot, lblactualRot, lblOptTT, lblActualTT, optButton)
+    detailsBox.spacing = h * 0.01
     detailsBox.prefWidth = w * 0.3
     detailsBox.styleClass.add("summary")
     detailsPane.children.add(detailsBox)
@@ -126,19 +133,12 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     gridPane.prefHeight = bodyPane.getPrefHeight * 0.9
     gridPane.hvalue = 0.5
 
-    val treeImpTitle = new Label("Tree Feature Importances")
-    val treeImportancesLabel = controller.genTreeImportancesLabel(0)
-    val treeImpBox = new VBox {
-      children = List(treeImpTitle, treeImportancesLabel)
-    }
-    treeImpBox.setPrefWidth(bodyPane.getPrefWidth * 0.2)
-
     val treeBranchLabel = new Label("Left branch = YES,  Right branch = NO")
     treeBranchLabel.styleClass.add("importantTip")
 
     val viewerBox = new VBox
     viewerBox.children = List(treeBranchLabel, gridPane)
-    viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.8)
+    viewerBox.setPrefWidth(bodyPane.getPrefWidth * 0.95)
     val numTrees = forestRun.getForestNumTrees
     val treeSelector = new ComboBox[Int] {
       promptText = "Select Tree..."
@@ -153,8 +153,6 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
         newPane.hvalue = 0.5
         viewerBox.children.remove(viewerBox.children.last)
         viewerBox.children.add(newPane)
-        treeImpBox.children.remove(treeImpBox.children.last)
-        treeImpBox.children.add(newLabel)
       }
     }
     treeSelector.styleClass.add("selector")
@@ -167,7 +165,7 @@ class ResultsView(controller: => ResultsController, forestRun: ForestRun, stageW
     AnchorPane.setAnchors(headerBox, 0, headerPane.getPrefWidth * 0.05d, 0, headerPane.getPrefWidth * 0.05d)
     AnchorPane.setTopAnchor(bodyBox, bodyPane.getPrefHeight * 0.008d)
     AnchorPane.setLeftAnchor(bodyBox, bodyPane.getPrefWidth * 0.008d)
-    bodyBox.children.addAll(viewerBox, treeImpBox)
+    bodyBox.children.addAll(viewerBox)
   }
 
 }

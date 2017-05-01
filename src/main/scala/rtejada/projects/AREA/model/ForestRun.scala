@@ -227,9 +227,9 @@ case class OptResults(optROT: Double, optTT: Double, actualROT: Double, actualTT
                       actualCrewCost: Double, actualMaintCost: Double, actualAOCost: Double, actualEnvCost: Double,
                       actualOtherCost: Double, savings: Double, samples: Array[SampleOpt])
 
-case class SampleOpt(optROT: Double, optTT: Double, actualROT: Double, actualTT: Double,
-                     optPath: Array[LinkInPath], actualPath: Array[LinkInPath],
-                     slowV: String, totalOptCost: Double, totalActualCost: Double)
+case class SampleOpt(aircraftType: String, optROT: Double, optTT: Double, actualROT: Double, actualTT: Double,
+                     slowV: String, totalOptCost: Double, totalActualCost: Double,
+                     savings: Double, predictedExit: String, optPath: Array[LinkInPath], actualPath: Array[LinkInPath])
 
 case class LinkInPath(linkID: String, isExit: Int, length: Double)
 

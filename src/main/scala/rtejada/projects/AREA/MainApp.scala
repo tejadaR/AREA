@@ -23,7 +23,7 @@ class MainApp extends JFXApp {
   val stageHeight = Screen.primary.bounds.height
 
   val mlModel: AREAModel = new AREAModel
-  
+
   //Constructor-injection
   val optionsController: OptionsController = new OptionsController(mlModel, optionsView, stageWidth, stageHeight)
   val optionsView: OptionsView = new OptionsView(optionsController, stageWidth, stageHeight)

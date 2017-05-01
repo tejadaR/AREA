@@ -13,21 +13,29 @@ import net.liftweb.json._
 import net.liftweb.json.JsonDSL._
 
 class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFrame, verticesDF: DataFrame,
-                   edgesDF: DataFrame, sizeDefDF: DataFrame, runTimeId: Long) extends Serializable {
+                   edgesDF: DataFrame, sizeDefDF: DataFrame, runTimeId: Long, airportCode: String) extends Serializable {
   import spark.implicits._
+
   //INIT PARAMS
-  val thresholdSpeed = 35 //meters per second
-  val taxiingSpeed = 11.83 //meters per second
-  val rotSavings = Map("GA" -> 0.1848, "Small" -> 0.547556, "Medium" -> 3.518044,
-    "Large" -> 8.110667, "Super" -> 11.17013) // $/second
-  val ptCosts = Map("GA" -> 0.2215, "Small" -> 0.492222, "Medium" -> 3.1625278,
-    "Large" -> 4.8606944, "Super" -> 6.6942222) // $/second
+  val thresholdSpeed = 50D //meters per second
+  val taxiingSpeed = 11.83D //meters per second
+  val rotBenefit = 1.11D
+  val airportSavingsAdjustments = airportCode match {
+    case "KPHX" => 0.25D
+    case "KATL" => 0.291667D
+    case "KBWI" => 0.125D
+    case _      => 0D
+  }
+
+  val ptCosts = Map("GA" -> 0.26, "Small" -> 0.66, "Medium" -> 2.03,
+    "Large" -> 3.75, "Super" -> 6.83) // $/second
   val fuelCost = 0.1796667 // $/second
   val crewCost = 0.271 // $/second
   val maintCost = 0.2003333 // $/second
   val acOwnershipCost = 0.132 // $/second
   val envCost = 0.6 // $/second
   val otherCost = 0.0451667 // $/second
+
   val sizeDefArr = sizeDefDF.collect.map(row => (row.getAs[String]("ACTypes"), row.getAs[String]("Category")))
 
   //VERTICES AND EDGES
@@ -59,10 +67,6 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
     val pathDetailsDF = addPathDetails(preparedDF).cache()
     val financialDF = addFinancials(pathDetailsDF)
     val readyResults = formatResults(financialDF)
-    readyResults
-
-    /*financialDF.printSchema
-    financialDF.drop("positions", "links").show(50, false)
     financialDF.describe("optROT", "optTT", "actualROT", "actualTT",
       "optPcost", "optFuelCost", "optCrewCost", "optMaintCost",
       "optAOCost", "optEnvCost", "optOtherCost", "actualPcost",
@@ -73,84 +77,37 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
       format("com.databricks.spark.csv").
       option("header", "true").
       save("testout/results.csv")
+    readyResults
 
-    System.exit(0)*/
-  }
-
-  private def formatResults(inputDF: DataFrame) = {
-    def avg(colName: String) = inputDF.select(mean(colName)).head().getAs[Double](0)
-    val count = inputDF.count.toDouble
-    val sampleCount = if (count < 25) count else 25D
-    val sampleRows = inputDF.select("aircraftType", "optROT", "optTT", "actualROT", "actualTT",
-      "optPath", "actualPath", "slowV", "totalOptCost", "totalActualCost",
-      "savings").sample(false, sampleCount / count).collect().toList
-    //sampleRows.printSchema()
-    //sampleRows.show(50, false)
-
-    val json =
-      ("optROT" -> avg("optROT")) ~
-        ("optTT" -> avg("optTT")) ~
-        ("actualROT" -> avg("actualROT")) ~
-        ("actualTT" -> avg("actualTT")) ~
-        ("optPcost" -> avg("optPcost")) ~
-        ("optFuelCost" -> avg("optFuelCost")) ~
-        ("optCrewCost" -> avg("optCrewCost")) ~
-        ("optMaintCost" -> avg("optMaintCost")) ~
-        ("optAOCost" -> avg("optAOCost")) ~
-        ("optEnvCost" -> avg("optEnvCost")) ~
-        ("optOtherCost" -> avg("optOtherCost")) ~
-        ("actualPcost" -> avg("actualPcost")) ~
-        ("actualFuelCost" -> avg("actualFuelCost")) ~
-        ("actualCrewCost" -> avg("actualCrewCost")) ~
-        ("actualMaintCost" -> avg("actualMaintCost")) ~
-        ("actualAOCost" -> avg("actualAOCost")) ~
-        ("actualEnvCost" -> avg("actualEnvCost")) ~
-        ("actualOtherCost" -> avg("actualOtherCost")) ~
-        ("savings" -> avg("savings")) ~ ("samples" -> sampleRows.map { sR =>
-          ("optROT" -> sR.getAs[Double]("optROT")) ~
-            ("optTT" -> sR.getAs[Double]("optTT")) ~
-            ("actualROT" -> sR.getAs[Double]("actualROT")) ~
-            ("actualTT" -> sR.getAs[Double]("actualTT")) ~
-            ("optPath" -> sR.getAs[Seq[Row]]("optPath").map { opR =>
-              ("linkID" -> opR.getAs[String](0)) ~
-                ("isExit" -> opR.getAs[Int](1)) ~
-                ("length" -> opR.getAs[Double](2))
-            }) ~
-            ("actualPath" -> sR.getAs[Seq[Row]]("actualPath").map { apR =>
-              ("linkID" -> apR.getAs[String](0)) ~
-                ("isExit" -> apR.getAs[Int](1)) ~
-                ("length" -> apR.getAs[Double](2))
-            }) ~
-            ("slowV" -> sR.getAs[String]("slowV")) ~
-            ("totalOptCost" -> sR.getAs[Double]("totalOptCost")) ~
-            ("totalActualCost" -> sR.getAs[Double]("totalActualCost"))
-        })
-
-    pretty(render(json))
+    //financialDF.printSchema
+    //financialDF.drop("positions", "links").show(50, false)
   }
 
   /** Adds start and goal vertex */
   private def prepare(inputDF: DataFrame, vertices: Array[Vertex], edges: Array[Edge]): DataFrame = {
     val withSlow = addSlowV(inputDF)
     val withGoal = addGoalV(withSlow)
-    withGoal.filter("goalV != slowV")
+    withGoal.filter("goalV != slowV").filter(r => {
+      val goalV = r.getAs[String]("goalV")
+      val slowV = r.getAs[String]("slowV")
+      !eArr.exists(e => (e.src == goalV && e.dst == slowV) || (e.src == slowV && e.dst == goalV))
+    })
   }
 
   /** Adds starting vertex(slowV). Filters out records where slowV was not found */
   private def addSlowV(inputDF: DataFrame): DataFrame = {
     /** User-defined function, takes in account slow speed threshold and direction to find startV  **/
-    def findStartV(positions: String, links: String) = {
+    def findStartV(positions: String) = {
       val posRawArr = positions.split("\\|")
       val posUsedArr = posRawArr.slice(0, Math.min(posRawArr.length, 80))
-      val linksArr = links.split("\\|")
 
       def getMilliseconds(latLongEpochArr: Array[String]): Long = {
         val decimal = latLongEpochArr(2).split("E")(0).toDouble
         val exponential = latLongEpochArr(2).split("E")(1).toDouble
         (decimal * Math.pow(10, exponential)).toLong
       }
-
       val posPairs = posUsedArr zip posUsedArr.tail
+
       val slowPositions = posPairs.find(pair => {
         val a = pair._1; val b = pair._2
         val firstLat = a.split(";")(0).toDouble
@@ -164,32 +121,37 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
         val speed = (distance / (diffMilliSeconds / 1000))
         speed < thresholdSpeed
       }) match {
-        case Some(pos) => pos
-        case None      => posPairs.last
+        case Some(pPair) => pPair
+        case None        => posPairs.last
       }
 
-      val latIncreasing = slowPositions._1.split(";")(0).toDouble < slowPositions._2.split(";")(0).toDouble
-      val longIncreasing = slowPositions._1.split(";")(1).toDouble < slowPositions._2.split(";")(1).toDouble
-      val slowMillis = getMilliseconds(slowPositions._2.split(";"))
+      val avgAngle = posPairs.take(5).map(pair => {
+        val a = pair._1; val b = pair._2
+        val latDiff = a.split(";")(0).toDouble - b.split(";")(0).toDouble
+        val longDiff = a.split(";")(1).toDouble - b.split(";")(1).toDouble
+        Math.atan2(latDiff, longDiff).toDegrees
+      }).reduceLeft(_ + _) / posPairs.size.toDouble
 
-      val slowIndex = linksArr.indexWhere { link => getMilliseconds(link.split(";")) > slowMillis }
-      val slowLinkID = if (slowIndex != -1) linksArr(slowIndex).split(";")(3) else "none"
-
-      val slowLink = eArr.find(edge => edge.linkID == slowLinkID)
-      slowLink match {
-        case Some(link) => {
-          val src = vArr.filter(vertex => vertex.nodeID == link.src).head
-          val dst = vArr.filter(vertex => vertex.nodeID == link.dst).head
-          val srcCondition = (src.lat > dst.lat && latIncreasing) ||
-            (src.long > dst.long && longIncreasing)
-          if (srcCondition) link.src else link.dst
-        }
-        case None => "none"
+      val directionVertices = vArr.filter { v =>
+        val vLatDiff = slowPositions._2.split(";")(0).toDouble - v.lat
+        val vLongDiff = slowPositions._2.split(";")(1).toDouble - v.long
+        val candidateAngle = Math.atan2(vLatDiff, vLongDiff).toDegrees
+        Math.abs(avgAngle - candidateAngle) <= 15
+      }
+      if (!directionVertices.isEmpty && airportCode != "KBWI" && airportCode != "KATL") {
+        val slowVertex = directionVertices.minBy(v => {
+          pp.getDistance(v.lat, v.long, slowPositions._2.split(";")(0).toDouble, slowPositions._2.split(";")(1).toDouble)
+        })
+        slowVertex.nodeID
+      } else {
+        val slowVertex = vArr.minBy(v => {
+          pp.getDistance(v.lat, v.long, slowPositions._2.split(";")(0).toDouble, slowPositions._2.split(";")(1).toDouble)
+        })
+        slowVertex.nodeID
       }
     }
-
-    val vertexUDF = udf(findStartV(_: String, _: String))
-    val vertexCol = vertexUDF.apply(inputDF.col("positions"), inputDF.col("links"))
+    val vertexUDF = udf(findStartV(_: String))
+    val vertexCol = vertexUDF.apply(inputDF.col("positions"))
     val withSlowDF = inputDF.withColumn("slowV", vertexCol).filter("slowV != 'none'")
     withSlowDF
   }
@@ -200,8 +162,12 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
       val linksArr = links.split("\\|")
       val linkID = linksArr.last.split(";")(3)
       eArr.find(edge => { edge.linkID == linkID }) match {
-        case Some(e) => e.dst
-        case None    => "none"
+        case Some(e) => {
+          if (eArr.count { edge => e.src == edge.src || e.src == edge.dst } == 1) e.src
+          else if (eArr.count { edge => e.dst == edge.src || e.dst == edge.dst } == 1) e.dst
+          else e.dst
+        }
+        case None => "none"
       }
     }
     val vertexUDF = udf(findGoalV(_: String))
@@ -212,12 +178,12 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
 
   /** Adds optimal and actual path details, including the link sequence, ROT and TT */
   private def addPathDetails(inputDF: DataFrame): DataFrame = {
-    val optPathUDF = udf(findOptPath(_: String, _: String))
-    val optPathCol = optPathUDF.apply(inputDF.col("slowV"), inputDF.col("goalV"))
+    val optPathUDF = udf(findOptPath(_: String, _: String, _: String))
+    val optPathCol = optPathUDF.apply(inputDF.col("slowV"), inputDF.col("goalV"), inputDF.col("links"))
     val optPathDF = inputDF.withColumn("optPath", optPathCol)
 
-    val actualPathUDF = udf(findActualPath(_: String, _: String, _: String))
-    val actualPathCol = actualPathUDF.apply(optPathDF.col("slowV"), optPathDF.col("predictedExit"), optPathDF.col("goalV"))
+    val actualPathUDF = udf(findActualPath(_: String, _: String, _: String, _: String))
+    val actualPathCol = actualPathUDF.apply(optPathDF.col("slowV"), optPathDF.col("predictedExit"), optPathDF.col("goalV"), optPathDF.col("links"))
     val actualPathDF = optPathDF.withColumn("actualPath", actualPathCol)
 
     val optRotUDF = udf(findOptROT(_: Seq[Row]))
@@ -228,8 +194,8 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
     val optTtCol = optTtUDF.apply(optRotDF.col("optPath"))
     val optTtDF = optRotDF.withColumn("optTT", optTtCol).filter("optTT != -1")
 
-    val actualRotUDF = udf(findActualROT(_: String, _: String))
-    val actualRotCol = actualRotUDF.apply(optTtDF.col("slowV"), optTtDF.col("predictedExit"))
+    val actualRotUDF = udf(findActualROT(_: Seq[Row]))
+    val actualRotCol = actualRotUDF.apply(optTtDF.col("actualPath"))
     val actualRotDF = optTtDF.withColumn("actualROT", actualRotCol).filter("actualROT != -1")
 
     val actualTtUDF = udf(findActualTT(_: Seq[Row]))
@@ -240,30 +206,67 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
   }
 
   /** Finds the optimal path sequence, with ID, if it's an exit, and its length: List[(String, Int, Double)] */
-  private def findOptPath(slowV: String, goalV: String) = {
-    val readyVertices = initVertices(vArr, slowV, goalV)
+  private def findOptPath(slowV: String, goalV: String, links: String) = {
+    val readyVertices = initVertices(vArr, slowV, goalV, slowV, links)
 
     val rawExplored = aStarSearch(readyVertices, slowV, goalV).filter(v => v.visited != 0)
     val vertexPath = tracePath(rawExplored, slowV, goalV)
     val edgePath = (vertexPath zip vertexPath.tail).map(vPairs => {
       eArr.find(e => (e.src == vPairs._1 && e.dst == vPairs._2) ||
         (e.dst == vPairs._1 && e.src == vPairs._2)) match {
-        case Some(e) => (e.linkID, e.isExit, e.length)
-        case None    => ("none", 0, 0D)
+        case Some(e) => {
+          val slowVassocExit = eArr.filter(_.isExit == 1).exists { e => e.src == slowV || e.dst == slowV }
+          if (vPairs._1 == slowV && slowVassocExit) (e.linkID, 1, e.length)
+          else (e.linkID, e.isExit, e.length)
+        }
+        case None => ("none", 0, 0D)
       }
     })
     edgePath
   }
 
   /** Initializes vertices by adding values for: heuristic, distance, cost, visited and 'via' */
-  private def initVertices(vertices: Array[Vertex], startV: String, goalV: String): Array[Vertex] = {
+  private def initVertices(vertices: Array[Vertex], startV: String, goalV: String, slowV: String, links: String): Array[Vertex] = {
+    val linkArr = links.split("\\|")
+    val slowLinkID = linkArr.find(l => {
+      val currLinkID = l.split(";")(3)
+      val filteredArr = eArr.filter(_.linkID == currLinkID)
+      if (filteredArr.isEmpty) {
+        false
+      } else {
+        val curEdge = filteredArr.head
+        curEdge.src == slowV || curEdge.dst == slowV
+      }
+    })
+    val avoidV = slowLinkID match {
+      case Some(linkStr) => {
+        val slowID = linkStr.split(";")(3)
+        val filteredArr = eArr.filter(_.linkID == slowID)
+        if (filteredArr.isEmpty) {
+          "none"
+        } else {
+          val slowEdge = filteredArr.head
+          if (slowEdge.src == slowV) slowEdge.dst else slowEdge.src
+        }
+      }
+      case None => "none"
+    }
+
     val goalVertex = vertices.filter(v => v.nodeID == goalV).head
-    vertices.map(v => {
+
+    val res = vertices.map(v => {
       val heuristic = pp.getDistance(v.lat, v.long, goalVertex.lat, goalVertex.long) * 3.28084 //m to ft
       val distance = if (v.nodeID == startV) 0.0D else Double.MaxValue
       val cost = if (v.nodeID == startV) heuristic else Double.MaxValue
       new Vertex(v.nodeID, v.lat, v.long, heuristic, distance, cost, v.via, v.visited)
     })
+    if (airportCode != "KATL") {
+      if (eArr.exists(e => ((e.src == startV && e.dst == goalV) ||
+        (e.dst == startV && e.src == goalV))) || startV == avoidV) res
+      else {
+        res.filter(_.nodeID != avoidV)
+      }
+    } else res
   }
 
   /** A* search recursive algorithm implementation */
@@ -292,7 +295,7 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
       } else new Vertex(v.nodeID, v.lat, v.long, v.heuristic, v.dist, v.cost, v.via, newVisited)
     })
     if (relevEdges.exists { e => (e.src == goalV || e.dst == goalV) }) updatedV.map(v => {
-      if (v.nodeID == startV || v.nodeID == goalV) // mark node as visited
+      if (v.nodeID == startV || v.nodeID == goalV) // mark start & goal as visited
         Vertex(v.nodeID, v.lat, v.long, v.heuristic, v.dist, v.cost, v.via, 1)
       else v
     })
@@ -312,6 +315,7 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
       case None => {
         println("path error, Vertex: " + nxt + "not found in visited array, where startV: " + startV + " and goalV: " + goalV)
         inputArr.foreach { x => println(x.nodeID + ", " + x.via + ", " + x.visited + ", " + x.heuristic) }
+        System.exit(0)
       }
     }
     res
@@ -340,20 +344,42 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
   }
 
   /** 'Actual' Path from ML-predicted exit(used as surrogate) to goal */
-  private def findActualPath(slowV: String, predictedExit: String, goalV: String) = {
+  private def findActualPath(slowV: String, predictedExit: String, goalV: String, links: String) = {
     val minLengthWithID = getMinLengthWithID(slowV, predictedExit)
 
-    val readyVertices = initVertices(vArr, minLengthWithID._2, goalV)
-    val rawExplored = aStarSearch(readyVertices, minLengthWithID._2, goalV).filter(v => v.visited != 0)
-    val vertexPath = tracePath(rawExplored, minLengthWithID._2, goalV)
-    val edgePath = (vertexPath zip vertexPath.tail).map(vPairs => {
+    val readyVerticesRot = initVertices(vArr, slowV, minLengthWithID._2, slowV, links)
+    val ePathRot = if (slowV != minLengthWithID._2) {
+      val rawExplRot = aStarSearch(readyVerticesRot, slowV, minLengthWithID._2).filter(v => v.visited != 0)
+      val vPathRot = tracePath(rawExplRot, slowV, minLengthWithID._2)
+      (vPathRot zip vPathRot.tail).map(vPairs => {
+        eArr.find(e => (e.src == vPairs._1 && e.dst == vPairs._2) ||
+          (e.dst == vPairs._1 && e.src == vPairs._2)) match {
+          case Some(e) => {
+            val slowVassocExit = eArr.filter(_.isExit == 1).exists { e => e.src == slowV || e.dst == slowV }
+            if (vPairs._1 == slowV && slowVassocExit) (e.linkID, 1, e.length)
+            else (e.linkID, e.isExit, e.length)
+          }
+          case None => ("none", 0, 0D)
+        }
+      })
+    } else List.empty[(String, Int, Double)]
+
+    val readyVerticesTT = initVertices(vArr, minLengthWithID._2, goalV, slowV, links)
+    val rawExplTT = aStarSearch(readyVerticesTT, minLengthWithID._2, goalV).filter(_.visited != 0)
+    val vPathTT = tracePath(rawExplTT, minLengthWithID._2, goalV)
+    val ePathTT = (vPathTT zip vPathTT.tail).map(vPairs => {
       eArr.find(e => (e.src == vPairs._1 && e.dst == vPairs._2) ||
         (e.dst == vPairs._1 && e.src == vPairs._2)) match {
-        case Some(e) => (e.linkID, e.isExit, e.length)
-        case None    => ("none", 0, 0D)
+        case Some(e) => {
+          val slowVassocExit = eArr.filter(_.isExit == 1).exists { e => e.src == slowV || e.dst == slowV }
+          if (vPairs._1 == slowV && slowVassocExit) (e.linkID, 1, e.length)
+          else (e.linkID, e.isExit, e.length)
+        }
+        case None => ("none", 0, 0D)
       }
     })
-    edgePath
+
+    (ePathRot ++ ePathTT)
   }
 
   /**
@@ -384,16 +410,27 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
   }
 
   /** 'Actual' Runway occupancy-time (ROT) in seconds */
-  private def findActualROT(startV: String, predictedExit: String) = {
-    val minLengthWithID = getMinLengthWithID(startV, predictedExit)
-    if (minLengthWithID._2 != "none") minLengthWithID._1 / thresholdSpeed else -1D
+  private def findActualROT(edgePath: Seq[Row]) = {
+    val exitIndex = edgePath.indexWhere(tup => tup(1) == 1)
+    val rotSeq = edgePath.slice(0, exitIndex + 1)
+
+    if (!rotSeq.isEmpty) {
+      val rotLength = rotSeq.map(_(2).asInstanceOf[Double]).reduceLeft(_ + _)
+      (rotLength * 0.3048) / thresholdSpeed // 
+    } else -1.0
   }
 
   /** 'Actual' Taxi-time(TT) in seconds */
-  private def findActualTT(edgePath: Seq[Row]) = if (edgePath.size > 1) {
-    val ttLength = edgePath.drop(1).map(_(2).asInstanceOf[Double]).reduceLeft(_ + _)
-    (ttLength * 0.3048) / taxiingSpeed // 11.83 m/s taxiing speed
-  } else -1.0
+  private def findActualTT(edgePath: Seq[Row]) = {
+    val exitIndex = edgePath.indexWhere(tup => tup(1) == 1)
+    val ttSeq = edgePath.slice(exitIndex + 1, edgePath.length)
+
+    if (!ttSeq.isEmpty) {
+      val ttLength = ttSeq.map(_(2).asInstanceOf[Double]).reduceLeft(_ + _)
+      (ttLength * 0.3048) / taxiingSpeed // 11.83 m/s taxiing speed
+    } else -1.0
+
+  }
 
   /** Adds financial costs and saving values related to optimal v.s. actual */
   private def addFinancials(inputDF: DataFrame) = {
@@ -437,15 +474,7 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
     val actualEnvCost = actualAOCost.withColumn("actualEnvCost", (actualAOCost.col("actualROT") + actualAOCost.col("actualTT")) * envCost)
     val actualOtherCost = actualEnvCost.withColumn("actualOtherCost", (actualEnvCost.col("actualROT") + actualEnvCost.col("actualTT")) * otherCost)
 
-    val savingsUDF = udf((aircraftType: String, deltaROT: Double) => {
-      val savings = rotSavings.get(aircraftType) match {
-        case Some(s) => s
-        case None    => 0D
-      }
-      deltaROT * savings
-    })
-    val savingsCol = savingsUDF.apply(actualOtherCost.col("aircraftType._2"), actualOtherCost.col("actualROT") - actualOtherCost.col("optROT"))
-    val savingsDF = actualOtherCost.withColumn("savings", savingsCol)
+    val savingsDF = actualOtherCost.withColumn("savings", (actualOtherCost.col("actualROT") - actualOtherCost.col("optROT")) * airportSavingsAdjustments * rotBenefit)
 
     val totalOptCost = savingsDF.withColumn("totalOptCost", savingsDF.col("optPcost") +
       savingsDF.col("optFuelCost") + savingsDF.col("optCrewCost") +
@@ -458,6 +487,63 @@ class Optimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFra
       totalOptCost.col("actualEnvCost") + totalOptCost.col("actualOtherCost"))
 
     totalActualCost
+  }
+
+  /** Formats summary and sample results into a JSON string */
+  private def formatResults(inputDF: DataFrame) = {
+    def avg(colName: String) = inputDF.select(mean(colName)).head().getAs[Double](0)
+    val count = inputDF.count.toDouble
+    val sampleCount = if (count < 50) count else 50D
+    val sampleRows = inputDF.select("aircraftType", "optROT", "optTT", "actualROT", "actualTT",
+      "optPath", "actualPath", "slowV", "totalOptCost", "totalActualCost",
+      "savings", "predictedExit").sample(false, sampleCount / count).limit(50).collect().toList
+    //sampleRows.printSchema()
+    //sampleRows.show(50, false)
+
+    val json =
+      ("optROT" -> avg("optROT")) ~
+        ("optTT" -> avg("optTT")) ~
+        ("actualROT" -> avg("actualROT")) ~
+        ("actualTT" -> avg("actualTT")) ~
+        ("optPcost" -> avg("optPcost")) ~
+        ("optFuelCost" -> avg("optFuelCost")) ~
+        ("optCrewCost" -> avg("optCrewCost")) ~
+        ("optMaintCost" -> avg("optMaintCost")) ~
+        ("optAOCost" -> avg("optAOCost")) ~
+        ("optEnvCost" -> avg("optEnvCost")) ~
+        ("optOtherCost" -> avg("optOtherCost")) ~
+        ("actualPcost" -> avg("actualPcost")) ~
+        ("actualFuelCost" -> avg("actualFuelCost")) ~
+        ("actualCrewCost" -> avg("actualCrewCost")) ~
+        ("actualMaintCost" -> avg("actualMaintCost")) ~
+        ("actualAOCost" -> avg("actualAOCost")) ~
+        ("actualEnvCost" -> avg("actualEnvCost")) ~
+        ("actualOtherCost" -> avg("actualOtherCost")) ~
+        ("savings" -> avg("savings")) ~ ("samples" -> sampleRows.map { sR =>
+          ("aircraftType" -> sR.getAs[Row]("aircraftType")(0).toString.concat(
+            ", " + sR.getAs[Row]("aircraftType")(1).toString)) ~
+            ("optROT" -> sR.getAs[Double]("optROT")) ~
+            ("optTT" -> sR.getAs[Double]("optTT")) ~
+            ("actualROT" -> sR.getAs[Double]("actualROT")) ~
+            ("actualTT" -> sR.getAs[Double]("actualTT")) ~
+            ("slowV" -> sR.getAs[String]("slowV")) ~
+            ("totalOptCost" -> sR.getAs[Double]("totalOptCost")) ~
+            ("totalActualCost" -> sR.getAs[Double]("totalActualCost")) ~
+            ("savings" -> sR.getAs[Double]("savings")) ~
+            ("predictedExit" -> sR.getAs[String]("predictedExit")) ~
+            ("optPath" -> sR.getAs[Seq[Row]]("optPath").map { opR =>
+              ("linkID" -> opR.getAs[String](0)) ~
+                ("isExit" -> opR.getAs[Int](1)) ~
+                ("length" -> opR.getAs[Double](2))
+            }) ~
+            ("actualPath" -> sR.getAs[Seq[Row]]("actualPath").map { apR =>
+              ("linkID" -> apR.getAs[String](0)) ~
+                ("isExit" -> apR.getAs[Int](1)) ~
+                ("length" -> apR.getAs[Double](2))
+            })
+        })
+
+    pretty(render(json))
   }
 
 }

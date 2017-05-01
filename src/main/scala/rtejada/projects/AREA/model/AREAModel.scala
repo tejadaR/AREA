@@ -49,7 +49,7 @@ class AREAModel {
 
   def loadLinks(airportCode: String) = {
     val dataFrames = Interface.getLinks(airportCode, spark)
-    val vertexDF = dataFrames._1.select("nodeName", "latitude", "longitude").withColumnRenamed("nodeName", "id")
+    val vertexDF = dataFrames._1.select("nodeName", "nodeID", "latitude", "longitude").withColumnRenamed("nodeName", "id")
     val edgeDF = dataFrames._2.select("LinkID", "LinkName", "NodeNameFrom", "Length", "NodeNameTo").
       withColumnRenamed("NodeNameFrom", "src").withColumnRenamed("NodeNameTo", "dst")
     val graph = GraphFrame(vertexDF, edgeDF)
@@ -133,8 +133,8 @@ class AREAModel {
       view.analysisBox.statusLabel.text = "Calculating Optimization..."
       view.analysisBox.runPb.progress = 0.85
     }
-    val optimization = new Optimization(spark, preProcessor, predictions,
-      preProcessor.verticesDF, preProcessor.exitEdgesDF, sizeDefDF, forestHandler.runTimeId)
+    val optimization = new RunOptimization(spark, preProcessor, predictions,
+      preProcessor.verticesDF, preProcessor.exitEdgesDF, sizeDefDF, forestHandler.runTimeId, airportCode)
 
     val runDuration = Calendar.getInstance.getTimeInMillis - startEpoch
 

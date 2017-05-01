@@ -89,8 +89,8 @@ class Preprocessor(spark: SparkSession, inputData: DataFrame, inputConfig: DataF
   private def addFeatures(inputDF: DataFrame): DataFrame = {
     val withTouchdown = findTouchdownPos(inputDF)
     val withDayTime = findDayTime(withTouchdown)
-    val withSpeeds = findDecel(withDayTime)
-    val withCarrier = findCarrier(withSpeeds)
+    val withDecel = findDecel(withDayTime)
+    val withCarrier = findCarrier(withDecel)
     val withTraffic = findTraffic(findLandingTime(withCarrier))
     withTraffic
   }
@@ -352,8 +352,8 @@ class Preprocessor(spark: SparkSession, inputData: DataFrame, inputConfig: DataF
    * for calculating distances on an ellipsoid: http://en.wikipedia.org/wiki/Vincenty%27s_formulae
    */
   def getDistance(lat1: Double, long1: Double, lat2: Double, long2: Double): Double = {
-    val a = 6378137d // length of semi-major axis of the ellipsoid (radius at equator) 
-    val b = 6356752.314245 // length of semi-minor axis of the ellipsoid (radius at the poles)
+    val a = 6378137d // length of semi-major axis of the ellipsoid (radius at equator), meters
+    val b = 6356752.314245 // length of semi-minor axis of the ellipsoid (radius at the poles), meters
     val f = 1 / 298.257223563 // 	flattening of the ellipsoid
     val L = Math.toRadians(long2 - long1) // 	difference in longitude of two points
     val U1 = Math.atan((1 - f) * Math.tan(Math.toRadians(lat1))) // reduced latitude1 (latitude on the auxiliary sphere)

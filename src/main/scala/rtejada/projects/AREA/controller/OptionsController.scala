@@ -75,11 +75,8 @@ class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Dou
     prediction match {
       case Some(predictedExit) => {
         val loadedLinks = model.loadLinks(airportCode)
-        println("ALLEXITS")
         loadedLinks._1.show(150)
         val predictionInfo = loadedLinks._1.filter("LinkID == '$predictedExit'")
-        println("predictedExit: " + predictedExit)
-        predictionInfo.show
 
         val srcLat = predictionInfo.head().getAs[String]("srcLatitude").toDouble
         val srcLong = predictionInfo.head().getAs[String]("srcLongitude").toDouble
