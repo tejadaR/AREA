@@ -1,0 +1,43 @@
+.root {
+	fontColor: black;
+	textAlign: left;
+	-fx-font-size: 16;
+	-fx-font-weight: 600;
+}
+
+.darkOne {
+	-fx-background-color: #3a6b94;
+	fontColor: white;
+	fontSize: 22;
+	fontWeight: 800;
+}
+
+.brightOne {
+	-fx-background-color: #fff5ee;
+	fontColor: black;
+	fontSize: 18;
+}
+
+.brightTwo {
+	-fx-background-color: #fcf7ff;
+	fontColor: black;
+	fontSize: 18;
+}
+
+.brightThree {
+	-fx-background-color: #f5cce8;
+	fontColor: black;
+	fontSize: 18;
+}
+
+.brightFour {
+	-fx-background-color: #fad4d3;
+	fontColor: black;
+	fontSize: 18;
+}
+
+.label {
+	-fx-text-fill: fontColor;
+	-fx-font-size: fontSize;
+	-fx-font-weight: fontWeight;
+}

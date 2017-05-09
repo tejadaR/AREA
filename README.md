@@ -1,17 +1,18 @@
 # Airport Runway Exit Analysis (AREA)
 
-*AREA is a Runway Exit Analysis tool built on Apache Spark's Scala API that aims to predict an arriving aircraft's runway exit choice. It is able to use thousands of flight records to train a Random Forest Classification Model. The model then makes predictions on a testing dataset.*
+*AREA is a Runway Exit Analysis tool calculates the full potential impact of optimizing runway exit operations in three airports.
 
-A compiled, downloadable release of this software can be found [here](https://github.com/tejadaR/AREA/releases/tag/v2.0)
+AREA generates predicted exits on thousands of records using a random forest classification model. It then creates a predicted path to the gate, as well as an optimal path using an A* search algorithm. These paths are used to compare Runway Occupancy Time (ROT) and Taxi Time (TT) in order to derive potential monetary savings*
+
+A compiled, downloadable release of this software can be found [here](https://github.com/tejadaR/AREA/releases/tag/v3.0) (to be added soon)
 
 # Functionality
 
  - **Model Training**: Create models by selecting the # of trees and the maximum tree depth.
  
- - **Airport Flexibility**: Train and test models using data from the currently supported international airports:
+ - **Airport Flexibility**: Train and test models using data from the currently supported airports:
    - Phoenix Sky Harbor(PHX)
    - Hartsfield–Jackson Atlanta(ATL)
-   - Denver(DEN)
    - Baltimore–Washington(BWI)
 
  - **Single Landing Testing**: Use trained models to test an exit prediction, by providing landing parameters
@@ -19,14 +20,16 @@ A compiled, downloadable release of this software can be found [here](https://gi
  - **Airport Diagram Viewer**: After loading a model, open its airport diagram to view exits and set touchdown coordinates.
  
  - **Results Viewer**: View model details, feature importances, and the structure of each tree in the random forest.
- 
-Brief demo of functionality:
 
-[![Demo](https://img.youtube.com/vi/ylonun7V3M0/0.jpg)](https://www.youtube.com/watch?v=ylonun7V3M0)
+ - **Path Viewer**: View the optimal and predicted paths for each record of a sample pool of the entire dataset.
+
+ - **Results Viewer**: View charts describing the ROT and TT results, as well as the potential impact to society and to airports/airlines.
+
+Brief demo of functionality to be added soon.
 
 ## Project Details
 
-AREA uses a derivation of the model–view–controller (MVC) architectural pattern called **Model-View-Presenter(Supervising Controller)**. The implementation is based on the theory explained [here](https://martinfowler.com/eaaDev/SupervisingPresenter.html) 
+AREA has a GUI built using a derivation of the model–view–controller (MVC) architectural pattern called **Model-View-Presenter(Supervising Controller)**. The implementation is based on the theory explained [here](https://martinfowler.com/eaaDev/SupervisingPresenter.html) 
 
 Wiring between mutually dependent services is done via constructor-injection. This is achieved by passing said services by-name, so that they can be evaluated lazily.
 
@@ -34,7 +37,8 @@ Wiring between mutually dependent services is done via constructor-injection. Th
  - **Pre-processing**: Filters out null data and discards irrelevant columns.
  - **Feature engineering**: Extracts relevant features based on given data (Eg: landing speed from array of positions and epoch times).
  - **Optional hyper-parameter tuning using grid-search**: accuracy of each subset measured using cross-validation.
- - **Output**: run information (feature importances, airport info, random forest info) is written to 3 files with a run ID number.
+ - **From-scratch implementation of A* **: A* search algorithm is implemented by manipulating the data with custom functions and domain-specific constraints, to account for landing behavior and the airports' intrinsic properties.
+ - **Output**: run information (feature importances, airport info, random forest info, and optimization info) is written to files with a run ID number.
 
 AREA handles pre-processing, testing and training tasks asynchronously by using Scala [Futures](http://docs.scala-lang.org/overviews/core/futures.html), **allowing users to concurrently train, load and view different models.**
 

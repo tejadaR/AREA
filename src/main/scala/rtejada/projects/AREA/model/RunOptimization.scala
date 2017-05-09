@@ -1,3 +1,6 @@
+/* This file is part of project AREA. 
+ * See file LICENSE.md or go to github.com/tejadaR/AREA/blob/master/LICENSE.md for full license details. */
+
 package rtejada.projects.AREA.model
 
 import org.apache.spark.sql._
@@ -12,6 +15,7 @@ import rtejada.projects.AREA.utils.Interface
 import net.liftweb.json._
 import net.liftweb.json.JsonDSL._
 
+/** Completes the optimization step for project AREA */
 class RunOptimization(spark: SparkSession, pp: Preprocessor, predictionsDF: DataFrame, verticesDF: DataFrame,
                       edgesDF: DataFrame, sizeDefDF: DataFrame, runTimeId: Long, airportCode: String) extends Serializable {
   import spark.implicits._

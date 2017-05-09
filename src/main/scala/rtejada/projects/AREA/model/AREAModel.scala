@@ -23,7 +23,6 @@ import scala.collection.mutable.HashMap
 import org.apache.spark.sql.types.StructType
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import org.graphframes.GraphFrame
 
 /** Model implementation */
 class AREAModel {
@@ -47,14 +46,14 @@ class AREAModel {
     .getOrCreate()
   import spark.implicits._
 
-  def loadLinks(airportCode: String) = {
+  /** Loads and cleans link and node files for a given airport */
+  def getLinksNodes(airportCode: String) = {
     val dataFrames = Interface.getLinks(airportCode, spark)
     val vertexDF = dataFrames._1.select("nodeName", "nodeID", "latitude", "longitude").withColumnRenamed("nodeName", "id")
     val edgeDF = dataFrames._2.select("LinkID", "LinkName", "NodeNameFrom", "Length", "NodeNameTo").
       withColumnRenamed("NodeNameFrom", "src").withColumnRenamed("NodeNameTo", "dst")
-    val graph = GraphFrame(vertexDF, edgeDF)
-    graph.vertices.createOrReplaceTempView("Vertices")
-    graph.edges.createOrReplaceTempView("Edges")
+    vertexDF.createOrReplaceTempView("Vertices")
+    edgeDF.createOrReplaceTempView("Edges")
     val withSrcCoords = spark.sql("SELECT LinkID, LinkName, src, dst, Length," +
       "latitude AS srcLatitude, longitude AS srcLongitude " +
       "FROM Edges INNER JOIN Vertices ON src = id")
@@ -62,7 +61,7 @@ class AREAModel {
     val withSrcAndDst = spark.sql("SELECT LinkID, LinkName, src, dst, Length, srcLatitude, srcLongitude," +
       "latitude AS dstLatitude, longitude AS dstLongitude " +
       "FROM Edges INNER JOIN Vertices ON dst = id")
-    (withSrcAndDst, graph)
+    (withSrcAndDst, vertexDF)
   }
 
   /** Creates a single-row DF to test the currently loaded model */

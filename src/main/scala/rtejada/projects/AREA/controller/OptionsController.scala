@@ -23,7 +23,7 @@ import scalafx.scene.Parent
 import java.io.File
 import rtejada.projects.AREA.model.ForestRun
 import scalafx.event.ActionEvent
-import rtejada.projects.AREA.view.ResultsView
+import rtejada.projects.AREA.view.DashboardView
 import scalafx.scene.layout.StackPane
 import scalafx.scene.image.ImageView
 import scalafx.scene.image.Image
@@ -37,6 +37,7 @@ import javafx.animation.{ Timeline, KeyFrame }
 import javafx.util.Duration
 import scalafx.scene.canvas.Canvas
 import scalafx.scene.paint.Color
+import rtejada.projects.AREA.view.DashboardView
 
 /** Controller implementation */
 class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Double, stageH: Double) {
@@ -74,9 +75,9 @@ class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Dou
 
     prediction match {
       case Some(predictedExit) => {
-        val loadedLinks = model.loadLinks(airportCode)
-        loadedLinks._1.show(150)
-        val predictionInfo = loadedLinks._1.filter("LinkID == '$predictedExit'")
+        val loadedLinks = model.getLinksNodes(airportCode)
+        val showExit = predictedExit.drop(1).dropRight(1)
+        val predictionInfo = loadedLinks._1.filter(s"LinkID =='$showExit'")
 
         val srcLat = predictionInfo.head().getAs[String]("srcLatitude").toDouble
         val srcLong = predictionInfo.head().getAs[String]("srcLongitude").toDouble
@@ -93,11 +94,11 @@ class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Dou
           airportImg.getImage.getWidth / Math.abs(endPoint._1 - startPoint._1)
 
         gc.lineWidth = 1
-        gc.setStroke(Color.Yellow)
+        gc.setStroke(Color.Gainsboro)
         gc.strokeOval(drawSrcLong, drawSrcLat, 4, 4)
         gc.strokeOval(drawDstLong, drawDstLat, 4, 4)
 
-        gc.setStroke(Color.Gold)
+        gc.setStroke(Color.Red)
         gc.strokeText(predictedExit, (drawSrcLong + drawDstLong) / 2, (drawSrcLat + drawDstLat) / 2)
 
         gc.lineWidth = 3
@@ -251,8 +252,8 @@ class OptionsController(mlModel: => AREAModel, view: => OptionsView, stageW: Dou
         "output/randomForest" + runID + ".txt",
         "output/runInfo" + runID + ".json",
         "output/optimization" + runID + ".json")
-      val resultsController: ResultsController = new ResultsController(model, forestRun, stageW, stageH)
-      val resultsView: ResultsView = new ResultsView(resultsController, forestRun, stageW, stageH)
+      val resultsController: DashboardController = new DashboardController(model, forestRun, stageW, stageH)
+      val resultsView: DashboardView = new DashboardView(resultsController, forestRun, stageW, stageH)
       resultsView.tab.id = runID
       val pane = new AnchorPane
       val closeButton = new Button {

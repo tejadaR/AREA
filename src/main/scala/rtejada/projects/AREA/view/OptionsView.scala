@@ -228,7 +228,7 @@ class OptionsView(controller: => OptionsController, stageWidth: Double, stageHei
       onAction = (ae: ActionEvent) => {
         controller.model.optLoadedModel match {
           case Some(loadedModel) => {
-            val airportCode = loadedModel._1.filter(!_.isDigit)
+            val airportCode = loadedModel._1.filter(!_.isDigit).replace("model", "")
             controller.onOpenDiagram(airportCode, None)
           }
           case _ => println("No model loaded")

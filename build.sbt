@@ -2,7 +2,7 @@ lazy val root = (project in file(".")).
   settings(
   scalaVersion := "2.11.8",
   mainClass in assembly := Some("rtejada.projects.AREA.Main"),
-  assemblyJarName in assembly := "AREA_2.0.jar",
+  assemblyJarName in assembly := "AREA_333.0.jar",
   test in assembly := {}
   )
   

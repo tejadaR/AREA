@@ -36,7 +36,8 @@ class MainApp extends JFXApp {
     height = stageHeight
 
     scene = new Scene {
-      stylesheets = List(getClass.getResource("/css/General.css").toExternalForm)
+      stylesheets = List(getClass.getResource("/css/General.css").toExternalForm,
+        getClass.getResource("/css/Dashboard.css").toExternalForm)
       val rootPane = new TabPane
       rootPane.setTabClosingPolicy(TabClosingPolicy.AllTabs)
 
