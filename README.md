@@ -1,8 +1,8 @@
 # Airport Runway Exit Analysis (AREA)
 
-*AREA is a Runway Exit Analysis tool calculates the full potential impact of optimizing runway exit operations in three airports.
+*AREA is a Runway Exit Analysis tool calculates the full potential impact of optimizing runway exit operations in three airports.*
 
-AREA generates predicted exits on thousands of records using a random forest classification model. It then creates a predicted path to the gate, as well as an optimal path using an A* search algorithm. These paths are used to compare Runway Occupancy Time (ROT) and Taxi Time (TT) in order to derive potential monetary savings*
+*AREA generates predicted exits on thousands of records using a random forest classification model. It then creates a predicted path to the gate, as well as an optimal path using an A\* search algorithm. These paths are used to compare Runway Occupancy Time (ROT) and Taxi Time (TT) in order to derive potential monetary savings*
 
 A compiled, downloadable release of this software can be found [here](https://github.com/tejadaR/AREA/releases/tag/v3.0) (to be added soon)
 
@@ -37,7 +37,7 @@ Wiring between mutually dependent services is done via constructor-injection. Th
  - **Pre-processing**: Filters out null data and discards irrelevant columns.
  - **Feature engineering**: Extracts relevant features based on given data (Eg: landing speed from array of positions and epoch times).
  - **Optional hyper-parameter tuning using grid-search**: accuracy of each subset measured using cross-validation.
- - **From-scratch implementation of A* **: A* search algorithm is implemented by manipulating the data with custom functions and domain-specific constraints, to account for landing behavior and the airports' intrinsic properties.
+ - **From-scratch implementation of A\* search**: A\* search algorithm is implemented by manipulating the data with custom functions and domain-specific constraints, to account for landing behavior and the airports' intrinsic properties.
  - **Output**: run information (feature importances, airport info, random forest info, and optimization info) is written to files with a run ID number.
 
 AREA handles pre-processing, testing and training tasks asynchronously by using Scala [Futures](http://docs.scala-lang.org/overviews/core/futures.html), **allowing users to concurrently train, load and view different models.**
